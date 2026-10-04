@@ -1,0 +1,14 @@
+.git/
+.env*
+!.env.example
+private/
+.agents/
+.codex/
+.vercel/
+.next/
+node_modules/
+outputs/
+work/
+*.tsbuildinfo
+skills-lock.json
+.DS_Store
