@@ -281,9 +281,9 @@ export function validateClient(value: unknown): Client {
     pets: c.pets?.map((p) => ({
       id: text(p.id, "la mascota", 100),
       name: text(p.name, "el nombre de la mascota", 80),
-      species: ["Perro", "Gato"].includes(p.species)
+      species: ["Perro", "Gato", "Por confirmar"].includes(p.species)
         ? p.species
-        : fail("Selecciona perro o gato."),
+        : fail("Selecciona perro, gato o especie por confirmar."),
       breed: text(p.breed, "la raza", 100, false),
       notes: text(p.notes, "las indicaciones", 2000, false),
     })),
