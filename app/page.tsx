@@ -2181,7 +2181,7 @@ function Editor({
                         ),
                       )
                     }
-                    options={["Perro", "Gato"].map((v) => ({
+                    options={["Perro", "Gato", "Por confirmar"].map((v) => ({
                       value: v,
                       label: v,
                     }))}
