@@ -25,7 +25,17 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider
-      localization={esES}
+      localization={{
+        ...esES,
+        signIn: {
+          ...esES.signIn,
+          start: {
+            ...esES.signIn?.start,
+            titleCombined: "Entrar o crear tu cuenta",
+            subtitleCombined: "para continuar a {{applicationName}}",
+          },
+        },
+      }}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
       afterSignOutUrl="/"

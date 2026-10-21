@@ -15,7 +15,12 @@ export default async function Page({
         width="180"
         height="180"
       />
+      <p className="auth-help">
+        Usa tu correo autorizado. Si es tu primera visita, podrás crear tu cuenta
+        y verificar tu correo aquí mismo.
+      </p>
       <SignIn
+        withSignUp
         forceRedirectUrl={path}
         signUpForceRedirectUrl={path}
         signUpUrl={`/sign-up?redirect_url=${encodeURIComponent(path)}`}

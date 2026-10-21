@@ -483,7 +483,7 @@ export default function Home() {
           <p className="muted">
             {joinToken
               ? "Entra con el correo registrado por administración y activa tu cuenta para trabajar en la agenda compartida."
-              : "Inicia sesión con una cuenta del equipo. Si aún no tienes acceso, solicita a administración tu enlace de activación."}
+              : "Entra con el correo autorizado por administración. Si es tu primera visita, crea tu cuenta y verifica tu correo desde la pantalla de acceso."}
           </p>
           {error && (
             <p role="alert" className="message error">
@@ -494,7 +494,7 @@ export default function Home() {
             {signIn && (
               <Button asChild>
                 <Link href={signInLink} target="_top">
-                  Iniciar sesión
+                  Entrar o crear mi cuenta
                 </Link>
               </Button>
             )}
