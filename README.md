@@ -38,6 +38,21 @@ La importación es transaccional y se cancela si el destino ya contiene datos. N
 
 La publicación original permanece disponible durante la transferencia. Una vez que se valide la nueva versión, conviene usar un solo portal para capturar datos: ambas bases son independientes.
 
+## Historial de rutas y cobros
+
+Administración dispone de rutas diarias, carga por camioneta, resumen semanal y seguimiento de transferencias. La agenda y el historial importado se consultan juntos; las visitas importadas conservan sus datos originales, sin inventar horarios, servicios, costos ni una confirmación de cobro.
+
+El historial vive en `route_visits`, separado del estado de agenda. La API exige una cuenta activa de administración y protege los cambios con revisión de fila y auditoría. Cambiar el importe o la forma de pago reinicia la confirmación. Efectivo y tarjeta sin confirmación en el origen quedan «Por verificar».
+
+Para una importación supervisada, guarda los CSV diarios como `routes-AAAA-MM-DD.csv` y las confirmaciones extraídas de la consulta como `transfers-week-AAAA-MM-DD.json` dentro de una carpeta `private/`. Verifica primero la correspondencia VAN A–D / Camioneta 01–04 y ejecuta la migración de esquema en el entorno elegido. Ejecuta el importador sin `--apply` para obtener la revisión previa:
+
+```sh
+node --env-file=.env.local --import tsx scripts/import-route-history.mts private/importacion-rutas
+node --env-file=.env.local --import tsx scripts/import-route-history.mts private/importacion-rutas --apply
+```
+
+El importador concilia cada transferencia con una visita e importe, conserva los respaldos iniciales y evita duplicar filas existentes. Las coincidencias ambiguas de clientes se vinculan manualmente desde «Revisar». No cambia las fichas originales ni sincroniza automáticamente el portal de origen. No publiques exportaciones ni respaldos en Git o Vercel.
+
 ## Verificación
 
 ```sh

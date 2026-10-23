@@ -88,6 +88,15 @@ import {
   type Command,
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
+import {
+  RouteDashboard,
+  ClientRouteHistory,
+} from "@/components/route-dashboard";
+import {
+  summarizeVisits,
+  boardVisits,
+  type RouteVisit,
+} from "@/lib/route-history";
 import { roleLabel, type TeamContext, type PublicMember } from "@/lib/team";
 const blankState = (): State => ({
   ...demoState(),
@@ -101,6 +110,8 @@ const blankState = (): State => ({
 const views = [
   { id: "agenda", label: "Agenda del día", icon: CalendarDays },
   { id: "routes", label: "Camionetas y rutas", icon: Truck },
+  { id: "weekly", label: "Resumen semanal", icon: ChartNoAxesCombined },
+  { id: "transfers", label: "Transferencias", icon: Wallet },
   { id: "clients", label: "Clientes y mascotas", icon: Users },
   { id: "payments", label: "Pagos y saldos", icon: Wallet },
   { id: "analytics", label: "Rentabilidad", icon: ChartNoAxesCombined },
@@ -210,20 +221,105 @@ export default function Home() {
   const [paymentTab, setPaymentTab] = useState("pending");
   const [team, setTeam] = useState<TeamContext | null>(null);
   const [joinToken, setJoinToken] = useState("");
+  const [history, setHistory] = useState<RouteVisit[]>([]);
+  const [historyError, setHistoryError] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const historyRequest = useRef(0);
   const requestNumber = useRef(0);
   const admin = team?.viewer.role === "admin";
   const view =
-    !admin && ["analytics", "settings"].includes(chosenView)
+    !admin &&
+    ["analytics", "settings", "weekly", "transfers"].includes(chosenView)
       ? "agenda"
       : chosenView;
   const allowedViews = views.filter(
-    (v) => admin || !["analytics", "settings"].includes(v.id),
+    (v) =>
+      admin || !["analytics", "settings", "weekly", "transfers"].includes(v.id),
   );
   function denyAccess() {
+    ++historyRequest.current;
+    setHistory([]);
+    setHistoryLoading(false);
     setReady(false);
     setTeam(null);
     setS(blankState());
     setModal(null);
+  }
+  async function loadHistory() {
+    const ticket = ++historyRequest.current;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const response = await fetch("/api/route-history", { cache: "no-store" });
+      const data = (await response.json()) as {
+        visits?: RouteVisit[];
+        error?: string;
+      };
+      if (ticket !== historyRequest.current) return;
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setHistory([]);
+          void refresh();
+        }
+        throw Error(data.error || "No se pudo cargar el historial.");
+      }
+      setHistory(data.visits || []);
+    } catch (error) {
+      if (ticket === historyRequest.current)
+        setHistoryError(
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el historial.",
+        );
+    } finally {
+      if (ticket === historyRequest.current) setHistoryLoading(false);
+    }
+  }
+  async function saveHistory(
+    record: RouteVisit,
+    changes: Record<string, unknown>,
+  ) {
+    if (!ready || busy || !admin) return false;
+    setBusy(true);
+    setError("");
+    ++requestNumber.current;
+    ++historyRequest.current;
+    setHistoryLoading(false);
+    try {
+      const response = await fetch("/api/route-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: record.id,
+          revision: record.revision,
+          changes,
+        }),
+      });
+      const data = (await response.json()) as {
+        visit?: RouteVisit;
+        error?: string;
+      };
+      if (!response.ok || !data.visit) {
+        if (
+          response.status === 409 ||
+          response.status === 401 ||
+          response.status === 403
+        )
+          void refresh();
+        throw Error(data.error || "No se pudo guardar la revisión.");
+      }
+      const visit = data.visit;
+      setHistory((rows) =>
+        rows.map((row) => (row.id === visit.id ? visit : row)),
+      );
+      setNotice("Revisión de la visita guardada.");
+      return true;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No se pudo guardar.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   }
   async function refresh() {
     const ticket = ++requestNumber.current;
@@ -248,6 +344,11 @@ export default function Home() {
       setTeam(d.team);
       setReady(true);
       setSignIn(false);
+      if (d.team.viewer.role === "admin") void loadHistory();
+      else {
+        ++historyRequest.current;
+        setHistory([]);
+      }
     } catch (e) {
       if (ticket === requestNumber.current)
         setError(
@@ -468,6 +569,21 @@ export default function Home() {
   const signInLink =
     "/sign-in?redirect_url=" +
     encodeURIComponent("/" + (joinToken ? "#equipo=" + joinToken : ""));
+  const routeProps = {
+    s,
+    history,
+    date,
+    van,
+    error: historyError,
+    loading: historyLoading,
+    onDate: setDate,
+    onVan: setVan,
+    onView: setView,
+    onReload: loadHistory,
+    onAppointment: details,
+    onClient: (client: Client) => open("clientDetail", client),
+    onSave: saveHistory,
+  };
   if (!ready)
     return (
       <main className="access-page">
@@ -636,6 +752,10 @@ export default function Home() {
                         ? "Cuatro camionetas. Una agenda en orden."
                         : "Tus servicios y domicilios asignados, en orden.",
                       routes: "Del primer domicilio al regreso a la base.",
+                      weekly:
+                        "Mascotas, domicilios e importes por camioneta y día.",
+                      transfers:
+                        "Pagos recibidos y pendientes, con su confirmación.",
                       clients: "Conoce a cada familia y a cada mascota.",
                       payments: "Cobros, anticipos y saldos en un solo lugar.",
                       analytics: "Ingresos y costos registrados, con contexto.",
@@ -670,14 +790,18 @@ export default function Home() {
               </Button>
             ) : null}
           </div>
-          {["agenda", "routes"].includes(view) && (
+          {["agenda", "routes", "weekly", "transfers"].includes(view) && (
             <div className="toolbar">
               <div className="date-controls">
                 <Button
                   variant="outline"
                   size="icon"
-                  aria-label="Día anterior"
-                  onClick={() => setDate(addDay(date, -1))}
+                  aria-label={
+                    view === "weekly" ? "Semana anterior" : "Día anterior"
+                  }
+                  onClick={() =>
+                    setDate(addDay(date, view === "weekly" ? -7 : -1))
+                  }
                 >
                   <ChevronLeft />
                 </Button>
@@ -690,8 +814,12 @@ export default function Home() {
                 <Button
                   variant="outline"
                   size="icon"
-                  aria-label="Día siguiente"
-                  onClick={() => setDate(addDay(date, 1))}
+                  aria-label={
+                    view === "weekly" ? "Semana siguiente" : "Día siguiente"
+                  }
+                  onClick={() =>
+                    setDate(addDay(date, view === "weekly" ? 7 : 1))
+                  }
                 >
                   <ChevronRight />
                 </Button>
@@ -712,10 +840,25 @@ export default function Home() {
           )}
           {view === "agenda" && (
             <>
+              {admin && history.some((v) => v.date === date) && (
+                <section className="panel rh-analytics">
+                  <h2>Visitas importadas del día</h2>
+                  <p>
+                    {history.filter((v) => v.date === date).length} visitas ·{" "}
+                    {history
+                      .filter((v) => v.date === date)
+                      .reduce((sum, v) => sum + v.pets.length, 0)}{" "}
+                    mascotas. Sus horarios y servicios aún no están capturados.
+                  </p>
+                  <Button variant="outline" onClick={() => setView("routes")}>
+                    Revisar rutas y cobros importados
+                  </Button>
+                </section>
+              )}
               <div className="metrics">
                 {[
                   [
-                    "Servicios del día",
+                    "Citas con horario del día",
                     `${active.length}`,
                     `${active.filter((a) => a.status === "Completado").length} completados · ${active.filter((a) => a.status === "En servicio").length} en curso`,
                   ],
@@ -875,6 +1018,16 @@ export default function Home() {
           )}
           {view === "routes" && (
             <>
+              {admin && <RouteDashboard {...routeProps} view="routes" />}
+              {admin && (
+                <div>
+                  <h2>Programación con horario</h2>
+                  <p className="muted">
+                    El orden sugerido corresponde a las citas de agenda con
+                    horarios, duración y coordenadas capturadas.
+                  </p>
+                </div>
+              )}
               <div className="route-base panel">
                 <span className="route-base-icon">
                   <MapPin />
@@ -967,6 +1120,12 @@ export default function Home() {
                 </p>
               </div>
             </>
+          )}
+          {admin && view === "weekly" && (
+            <RouteDashboard {...routeProps} view="weekly" />
+          )}
+          {admin && view === "transfers" && (
+            <RouteDashboard {...routeProps} view="transfers" />
           )}
           {view === "clients" && (
             <>
@@ -1101,6 +1260,11 @@ export default function Home() {
                 <TabsList>
                   <TabsTrigger value="pending">Saldos abiertos</TabsTrigger>
                   <TabsTrigger value="history">Historial de pagos</TabsTrigger>
+                  {admin && (
+                    <TabsTrigger value="routes">
+                      Cobros de rutas importadas
+                    </TabsTrigger>
+                  )}
                 </TabsList>
                 <TabsContent value="pending">
                   <section className="panel">
@@ -1206,15 +1370,48 @@ export default function Home() {
                     )}
                   </section>
                 </TabsContent>
+                {admin && (
+                  <TabsContent value="routes">
+                    <RouteDashboard {...routeProps} view="payments" />
+                  </TabsContent>
+                )}
               </Tabs>
               <p className="footnote">
-                Registro administrativo de pagos recibidos. La tarjeta se cobra
-                en tu terminal y la transferencia se verifica en tu banco.
+                Los cobros del día y saldos abiertos de esta sección
+                corresponden a las citas de agenda. El historial importado y su
+                revisión están en «Cobros de rutas importadas». Registro
+                administrativo de pagos recibidos. La tarjeta se cobra en tu
+                terminal y la transferencia se verifica en tu banco.
               </p>
             </>
           )}
           {admin && view === "analytics" && (
-            <Analytics s={s} onClient={(c) => open("clientDetail", c)} />
+            <>
+              {history.length > 0 && (
+                <section className="panel rh-analytics">
+                  <h2>Importes del historial de rutas</h2>
+                  <p>
+                    {history.length} visitas ·{" "}
+                    {money(
+                      summarizeVisits(
+                        boardVisits({ ...s, appointments: [] }, history),
+                      ).amount,
+                    )}{" "}
+                    registrados.
+                  </p>
+                  <p className="muted">
+                    Estas visitas no incluyen costos ni tipo de servicio
+                    confirmado, por lo que aún no permiten calcular su
+                    rentabilidad. El análisis siguiente corresponde a las citas
+                    de agenda con costos registrados.
+                  </p>
+                  <Button variant="outline" onClick={() => setView("weekly")}>
+                    Revisar resumen semanal
+                  </Button>
+                </section>
+              )}
+              <Analytics s={s} onClient={(c) => open("clientDetail", c)} />
+            </>
           )}
           {view === "incidents" && (
             <>
@@ -1524,6 +1721,11 @@ export default function Home() {
                   ))}
                   {!visits.length && (
                     <p className="muted">Aún no hay visitas.</p>
+                  )}
+                  {admin && (
+                    <ClientRouteHistory
+                      visits={history.filter((v) => v.clientId === c.id)}
+                    />
                   )}
                   <h2>Incidencias</h2>
                   {s.incidents

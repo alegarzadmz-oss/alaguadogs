@@ -23,3 +23,13 @@ CREATE TABLE IF NOT EXISTS team_audit (
   actor text NOT NULL,
   action text NOT NULL
 );
+CREATE TABLE IF NOT EXISTS route_visits (
+  owner text NOT NULL,
+  id text NOT NULL,
+  service_date date NOT NULL,
+  payload jsonb NOT NULL,
+  original jsonb NOT NULL,
+  revision integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (owner, id)
+);
+CREATE INDEX IF NOT EXISTS route_visits_date ON route_visits(owner, service_date);

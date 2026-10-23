@@ -1462,3 +1462,186 @@ h1 {
   text-align: center;
   line-height: 1.5;
 }
+
+.route-dashboard {
+  display: grid;
+  gap: 1.2rem;
+  margin-bottom: 1.5rem;
+  min-width: 0;
+}
+.rh-tabs,
+.rh-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rh-origin {
+  margin: 0;
+  max-width: 100ch;
+}
+.rh-loads {
+  padding: 1.25rem;
+}
+.rh-load-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+.rh-load {
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--brand-coral);
+  border-radius: 14px;
+  padding: 1rem;
+  text-align: left;
+  display: grid;
+  gap: 0.55rem;
+  background: var(--brand-cream);
+}
+.rh-load[aria-pressed="true"] {
+  outline: 2px solid var(--brand-navy);
+  outline-offset: 2px;
+}
+.rh-load strong {
+  font-size: 1.7rem;
+}
+.rh-load strong small {
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.rh-load small {
+  color: var(--muted-foreground);
+}
+.rh-van-1 {
+  border-top-color: var(--brand-turquoise);
+}
+.rh-van-2 {
+  border-top-color: var(--brand-gold);
+}
+.rh-van-3 {
+  border-top-color: var(--brand-navy);
+}
+.rh-bar {
+  height: 8px;
+  border-radius: 8px;
+  background: #e8e1dc;
+  overflow: hidden;
+}
+.rh-bar span {
+  display: block;
+  height: 100%;
+  background: var(--brand-navy);
+  border-radius: inherit;
+}
+.rh-filters {
+  display: flex;
+  gap: 0.8rem;
+  align-items: end;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.rh-filters > input {
+  flex: 1;
+  min-width: 200px;
+}
+.rh-filters label,
+.rh-editor label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+.rh-filters select,
+.rh-editor select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  padding: 0.5rem;
+  background: white;
+  color: var(--foreground);
+}
+.rh-week-cell {
+  display: grid;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.65rem;
+  border-radius: 8px;
+  min-width: 135px;
+}
+.rh-week-cell:hover,
+.rh-week-cell:focus-visible {
+  background: var(--accent);
+}
+.rh-week-cell strong {
+  font-size: 1.15rem;
+}
+.rh-week-cell small {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+.rh-warning {
+  color: #944024;
+}
+.rh-received {
+  color: #236756;
+}
+.rh-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground);
+}
+.rh-dialog {
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.rh-editor {
+  display: grid;
+  gap: 1rem;
+}
+.rh-editor .rh-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.rh-checkbox input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--brand-navy);
+  flex-shrink: 0;
+}
+.rh-analytics {
+  margin-bottom: 1.5rem;
+  display: grid;
+  gap: 0.8rem;
+}
+.rh-client-history {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+}
+@media (max-width: 900px) {
+  .rh-load-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .rh-load-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .rh-load {
+    padding: 0.7rem;
+  }
+  .rh-load strong {
+    font-size: 1.35rem;
+  }
+  .rh-filters > input,
+  .rh-filters label {
+    width: 100%;
+  }
+  .route-dashboard .section-row {
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+}
