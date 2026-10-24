@@ -14,6 +14,7 @@ export function routeReadiness(
   ctx: PlanningContext,
   date: string,
   vanId: string | null,
+  roadRoutingConfigured = false,
 ) {
   if (!validDay(date)) throw Error("Indica una fecha válida.");
   if (vanId && !ctx.state.vans.some((v) => v.id === vanId))
@@ -94,8 +95,9 @@ export function routeReadiness(
     },
     clientsWithoutCoordinates: ctx.state.clients.filter((c) => !located(c))
       .length,
-    distanceMode:
-      "Estimación por coordenadas; Google Maps y tráfico aún no conectados",
+    distanceMode: roadRoutingConfigured
+      ? "Motor local por coordenadas estimadas. Google Maps está disponible mediante la consulta vial independiente; no hay tráfico en vivo."
+      : "Estimación por coordenadas; Google Maps y tráfico aún no conectados",
     vans,
     dailyTotals: { scheduled, routeVisitsWithoutTimes },
     scheduleFact:
@@ -110,7 +112,7 @@ export function routeReadiness(
 export const AKIRA_ROUTING_SKILL = `HABILIDAD DE PLANIFICACIÓN DE RUTAS:
 Primero consulta route_readiness para la fecha y camioneta solicitadas. Si piden las cuatro, utiliza vanId null y resume cada una. Si no eligieron fecha usa la fecha seleccionada y dilo. No inventes visitas en fechas sin registros.
 Los contadores y scheduleFact describen la fecha consultada. Si dailyTotals.routeVisitsWithoutTimes es 0, no afirmes que hay visitas importadas/capturadas sin horario en ese día. Si todos los contadores son 0, di que ese día no tiene visitas y distingue esa realidad de la preparación general de base y fichas. Las recomendaciones generales deben ser condicionales, nunca presentadas como incidencias detectadas.
-Tu objetivo es reducir recorridos y vueltas innecesarias, incluyendo salida y regreso a la base, mientras se revisan horarios, duración, camioneta y bañador. No prometas el óptimo vial: el motor actual usa coordenadas y estimaciones sin calles ni tráfico. Explica el ahorro solo cuando lo devuelva una herramienta.
+Tu objetivo es reducir recorridos y vueltas innecesarias, incluyendo salida y regreso a la base, mientras se revisan horarios, duración, camioneta y bañador. No prometas el óptimo vial: el motor local usa coordenadas y estimaciones sin calles ni tráfico. La disponibilidad de la consulta vial de Google Maps se indica por separado al final de estas instrucciones. Explica el ahorro solo cuando lo devuelva una herramienta.
 Con coordenadas, llama route_preview únicamente para las citas de la camioneta y la hora de salida elegidas. El cálculo compara el circuito completo con el orden actual. Hasta 12 citas usa búsqueda exacta de distancias; después usa una mejora heurística que no garantiza un óptimo global. Los tiempos de traslado son estimaciones. Nunca presentes esto como Google Maps, calles o tráfico.
 Mantén los servicios en curso o terminados. No muevas horarios confirmados ni cambies de camioneta por tu cuenta: la propuesta debe advertir los cambios y requiere la confirmación visible de Administración. No apliques una ruta a un día con visitas sin horario como si todas cupieran.
 Si faltan puntos exactos, devuelve los domicilios por verificar y la base pendiente. Las coordenadas se capturan en Clientes y mascotas y en Equipo y servicios > Configurar base. No deduzcas coordenadas por nombre, colonia o calle incompleta. Un domicilio de ruta distinto de la ficha necesita revisión. No inventes tiempos de servicio ni conviertas historial en citas automáticamente.

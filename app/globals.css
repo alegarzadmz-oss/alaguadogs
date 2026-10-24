@@ -2576,3 +2576,10 @@ h1 {
   .rh-pending-price { align-items: flex-start; flex-direction: column; }
   .rh-client-history .history-item { align-items: flex-start; flex-wrap: wrap; }
 }
+.maps-actions { margin-top: 1rem; flex-wrap: wrap; }
+.maps-select { width: 100%; min-height: 2.5rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--background); padding: .5rem; color: inherit; }
+.maps-result { margin-top: 1rem; overflow-wrap: anywhere; }
+.maps-result ol { padding-left: 1.5rem; }
+.maps-result li { margin-block: .6rem; }
+.maps-result a { text-decoration: underline; }
+.maps-attribution { white-space: nowrap; font-style: normal; font-weight: 400; color: #5e5e5e; font-size: 14px; letter-spacing: normal; }

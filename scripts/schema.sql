@@ -90,3 +90,11 @@ CREATE TABLE IF NOT EXISTS service_email_outbox (
   UNIQUE(owner,kind,visit_id,signature)
 );
 CREATE INDEX IF NOT EXISTS service_email_pending ON service_email_outbox(owner,status,next_attempt_at);
+
+CREATE TABLE IF NOT EXISTS maps_usage (
+  owner text NOT NULL,
+  month text NOT NULL CHECK (month ~ '^[0-9]{4}-[0-9]{2}$'),
+  service text NOT NULL CHECK (service IN ('routes','geocoding')),
+  used integer NOT NULL CHECK (used >= 0 AND used <= 1000),
+  PRIMARY KEY (owner,month,service)
+);

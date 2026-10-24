@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       ctx,
       input.data.messages,
       input.data.date,
+      member,
     );
     return json({ ...result, revision: current.revision });
   } catch (e) {

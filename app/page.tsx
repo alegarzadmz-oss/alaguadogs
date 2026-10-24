@@ -88,6 +88,7 @@ import {
   type Command,
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
+import { MapsMonitor } from "@/components/maps-monitor";
 import { ServiceCloseout } from "@/components/service-closeout";
 import { ServiceEmailMonitor } from "@/components/service-email-monitor";
 import { RouteCapture } from "@/components/route-capture";
@@ -1586,6 +1587,7 @@ export default function Home() {
                 ))}
               </div>
               <ServiceEmailMonitor />
+              <MapsMonitor vans={s.vans} date={date} />
               <section className="panel settings-card">
                 <h2>Base de salida y regreso</h2>
                 <p>{s.base.address || "Por configurar"}</p>
@@ -2686,8 +2688,9 @@ function Editor({
           {input("address", "Domicilio de salida y regreso")}
           {coordinates}
           <p className="muted">
-            La sugerencia de orden requiere latitud y longitud. Usa el punto de
-            salida real de las camionetas.
+            Usa el domicilio completo de salida y regreso. La consulta de Google
+            Maps usa este domicilio; el cálculo local requiere ambas
+            coordenadas.
           </p>
         </>
       )}

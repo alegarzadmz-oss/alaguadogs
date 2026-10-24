@@ -543,8 +543,8 @@ export function mutateState(
         lat: coord(c.base.lat, 90),
         lng: coord(c.base.lng, 180),
       };
-      if (s.base.lat === null || s.base.lng === null)
-        fail("Indica coordenadas de la base.");
+      if ((s.base.lat === null) !== (s.base.lng === null))
+        fail("Indica ambas coordenadas de la base o deja ambas vacías.");
       action = "Base de salida y regreso actualizada";
       break;
     }

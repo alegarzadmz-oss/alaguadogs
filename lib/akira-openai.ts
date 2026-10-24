@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { routeReadiness } from "./akira-routing";
+import { mapsRoutePlan } from "./maps-plan";
+import { computeMapsRoute } from "./google-maps";
+import type { TeamMember } from "./team";
 import {
   akiraSystemPrompt,
   bookingProposal,
@@ -78,6 +81,11 @@ const common = {
 };
 const tools = [
   tool(
+    "road_route_preview",
+    "Consulta Google Maps para ordenar por calles las visitas de una camioneta y fecha, incluyendo regreso a base. Consume una consulta del límite mensual compartido. Solo lectura, no cambia agenda ni confirma disponibilidad.",
+    { date: string, vanId: string },
+  ),
+  tool(
     "route_readiness",
     "Revisa las cuatro camionetas o una elegida: base, ubicaciones faltantes, visitas sin horario y servicios que deben conservarse. No modifica datos.",
     { date: string, vanId: nullable },
@@ -110,6 +118,7 @@ const tools = [
 ];
 export function akiraDisplayReply(reply: string) {
   const labels: Record<string, string> = {
+    road_route_preview: "la consulta de recorrido por calles",
     route_preview: "la propuesta de ruta",
     route_readiness: "la revisión de preparación de rutas",
     day_schedule: "la consulta de agenda",
@@ -120,7 +129,7 @@ export function akiraDisplayReply(reply: string) {
     previews: "propuestas",
   };
   return reply.replace(
-    /\b(route_preview|route_readiness|day_schedule|suggest_slots|prepare_booking|find_clients|slots|previews)\b/g,
+    /\b(road_route_preview|route_preview|route_readiness|day_schedule|suggest_slots|prepare_booking|find_clients|slots|previews)\b/g,
     (name) => labels[name],
   );
 }
@@ -137,8 +146,13 @@ export async function chatWithAkira(
   ctx: PlanningContext,
   messages: AkiraMessage[],
   selectedDate: string,
+  member?: TeamMember,
 ) {
   const proposals: AkiraProposal[] = [];
+  const roadResults = new Map<
+    string,
+    Awaited<ReturnType<typeof computeMapsRoute>>
+  >();
   const conversation: unknown[] = [...messages];
   let reply = "";
   for (let step = 0; step < 6; step++) {
@@ -152,7 +166,9 @@ export async function chatWithAkira(
         model: process.env.AKIRA_MODEL || "gpt-5-mini",
         store: false,
         include: ["reasoning.encrypted_content"],
-        instructions: akiraSystemPrompt(ctx, selectedDate),
+        instructions:
+          akiraSystemPrompt(ctx, selectedDate) +
+          `\nCONSULTA VIAL: ${process.env.GOOGLE_MAPS_API_KEY && member ? "Google Maps está configurado. Si solicitan ordenar por calles o la ruta más eficiente, consulta road_route_preview para cada camioneta elegida, después del diagnóstico. Usa los domicilios completos de base y visitas; esa consulta no requiere coordenadas guardadas. Si faltan domicilios, pide completarlos. Si ya devolvió un recorrido en esta respuesta, no lo repitas. Su resultado solo propone el orden por calles: no aplica horarios ni crea tarjeta para guardar, no compara ahorro con un recorrido original y no incluye tráfico en vivo ni duraciones de servicios. Las visitas históricas sin horario pueden consultarse por calles, pero no confirman disponibilidad ni se convierten en citas. Presenta el orden, kilómetros y minutos estimados de manejo, incluyendo regreso, sin afirmar que se guardó." : "Google Maps no está configurado; no llames road_route_preview."}`,
         input: conversation,
         tools,
         parallel_tool_calls: false,
@@ -193,12 +209,35 @@ export async function chatWithAkira(
       try {
         const args = JSON.parse(call.arguments || "{}");
         switch (call.name) {
+          case "road_route_preview": {
+            if (!member)
+              throw Error(
+                "La consulta vial requiere una sesión de administración.",
+              );
+            const input = z.object({ date, vanId: id }).strict().parse(args);
+            const key = `${input.date}:${input.vanId}`;
+            let preview = roadResults.get(key);
+            if (!preview) {
+              preview = await computeMapsRoute(
+                member,
+                mapsRoutePlan(ctx.state, ctx.history, input.date, input.vanId),
+              );
+              roadResults.set(key, preview);
+            }
+            result = preview;
+            break;
+          }
           case "route_readiness": {
             const input = z
               .object({ date, vanId: id.nullable() })
               .strict()
               .parse(args);
-            result = routeReadiness(ctx, input.date, input.vanId);
+            result = routeReadiness(
+              ctx,
+              input.date,
+              input.vanId,
+              Boolean(process.env.GOOGLE_MAPS_API_KEY && member),
+            );
             break;
           }
           case "find_clients":
@@ -272,6 +311,8 @@ export async function chatWithAkira(
       });
     }
   }
+  if (roadResults.size && !reply.includes("Google Maps"))
+    reply += "\nFuente: Google Maps.";
   return {
     reply: akiraDisplayReply(
       reply || "Revisa los datos de la propuesta antes de confirmarla.",
