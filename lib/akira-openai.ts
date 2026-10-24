@@ -108,6 +108,22 @@ const tools = [
     { date: string, vanId: string, start: string },
   ),
 ];
+export function akiraDisplayReply(reply: string) {
+  const labels: Record<string, string> = {
+    route_preview: "la propuesta de ruta",
+    route_readiness: "la revisión de preparación de rutas",
+    day_schedule: "la consulta de agenda",
+    suggest_slots: "la sugerencia de horarios",
+    prepare_booking: "la preparación de la cita",
+    find_clients: "la búsqueda de clientes",
+    slots: "horarios sugeridos",
+    previews: "propuestas",
+  };
+  return reply.replace(
+    /\b(route_preview|route_readiness|day_schedule|suggest_slots|prepare_booking|find_clients|slots|previews)\b/g,
+    (name) => labels[name],
+  );
+}
 export class AkiraError extends Error {
   constructor(
     message: string,
@@ -257,7 +273,9 @@ export async function chatWithAkira(
     }
   }
   return {
-    reply: reply || "Revisa los datos de la propuesta antes de confirmarla.",
+    reply: akiraDisplayReply(
+      reply || "Revisa los datos de la propuesta antes de confirmarla.",
+    ),
     proposals,
   };
 }
