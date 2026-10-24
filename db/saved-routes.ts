@@ -208,6 +208,10 @@ export async function publishRoadRoute(
       );
     const source = routeSource(state, history, view.date, view.vanId);
     if (source.kind === "appointments") {
+      if (view.stops.some((stop, index) => stop.id !== source.stops[index]?.id))
+        throw new SavedRouteError(
+          "La propuesta cambia el orden de citas con horario confirmado. Revisa y acuerda los horarios en la agenda antes de publicar una ruta actualizada.",
+        );
       if (source.stops.some((s) => s.groomerId !== input.groomerId))
         throw new SavedRouteError(
           "Asigna primero todas las citas de esta ruta a ese bañador en la agenda.",

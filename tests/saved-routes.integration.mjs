@@ -211,6 +211,11 @@ try {
       },
     ],
   };
+  stateWithAppointments.appointments.push({
+    ...stateWithAppointments.appointments[0],
+    id: prefix + "appt2",
+    time: "10:30",
+  });
   await db`UPDATE operation_state SET payload=${JSON.stringify(stateWithAppointments)} WHERE owner=${owner}`;
   const appointmentSource = routeSource(
     stateWithAppointments,
@@ -221,7 +226,7 @@ try {
   const appointmentDraft = await storeRoadProposal(
     admin,
     appointmentSource,
-    [prefix + "appt"],
+    [prefix + "appt", prefix + "appt2"],
     owner,
   );
   await assert.rejects(
@@ -236,6 +241,20 @@ try {
       owner,
     ),
     /cuenta activa/,
+  );
+  const backwards = await storeRoadProposal(
+    admin,
+    appointmentSource,
+    [prefix + "appt2", prefix + "appt"],
+    owner,
+  );
+  await assert.rejects(
+    publishRoadRoute(
+      admin,
+      { id: backwards.id, revision: 0, groomerId: a.id, reviewed: true },
+      owner,
+    ),
+    /horario confirmado/,
   );
   await publishRoadRoute(
     admin,
