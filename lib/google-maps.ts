@@ -226,6 +226,9 @@ export function parseMapsRouteResponse(
     })),
     distanceKm: Math.round(route.distanceMeters / 100) / 10,
     drivingMinutes: minutes(route.duration),
+    drivingMinutesIncludesReturn: true,
+    drivingTimeMeaning:
+      "Tiempo total de manejo del circuito, incluido el regreso a base. returnMinutes ya está incluido: no sumarlo otra vez.",
     returnMinutes: minutes(route.legs.at(-1)!.duration),
     saved: false,
     attribution: "Google Maps",

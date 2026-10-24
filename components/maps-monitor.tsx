@@ -225,8 +225,9 @@ export function MapsMonitor({
             <>
               <h3>Recorrido sugerido · Google Maps</h3>
               <p>
-                {result.distanceKm} km · {result.drivingMinutes} min estimados
-                de manejo. El tiempo de baño y corte se suma por separado.
+                {result.distanceKm} km · {result.drivingMinutes} min totales
+                estimados de manejo, incluido el regreso a base. El tiempo de
+                baño y corte se suma por separado.
               </p>
               <ol>
                 {result.stops.map((s) => (
@@ -236,7 +237,10 @@ export function MapsMonitor({
                   </li>
                 ))}
               </ol>
-              <p>Regreso a base: {result.returnMinutes} min estimados.</p>
+              <p>
+                Del total, {result.returnMinutes} min corresponden al regreso a
+                base.
+              </p>
               <p className="muted">{result.warning}</p>
             </>
           )}
