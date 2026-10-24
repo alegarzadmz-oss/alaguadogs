@@ -88,6 +88,7 @@ import {
   type Command,
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
+import { AkiraAssistant } from "@/components/akira-assistant";
 import {
   RouteDashboard,
   ClientRouteHistory,
@@ -1579,6 +1580,18 @@ export default function Home() {
           )}
         </div>
       </main>
+      {admin && ready && (
+        <AkiraAssistant
+          date={date}
+          revision={revision}
+          busy={busy}
+          onSave={save}
+          onNavigate={(nextDate, nextView) => {
+            setDate(nextDate);
+            setView(nextView);
+          }}
+        />
+      )}
       <Dialog
         open={!!modal}
         onOpenChange={(v) => {
