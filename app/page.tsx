@@ -89,6 +89,7 @@ import {
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
 import { MapsMonitor } from "@/components/maps-monitor";
+import { SavedRoutes, DailyRouteButton } from "@/components/saved-routes";
 import { ServiceCloseout } from "@/components/service-closeout";
 import { ServiceEmailMonitor } from "@/components/service-email-monitor";
 import { RouteCapture } from "@/components/route-capture";
@@ -901,6 +902,9 @@ export default function Home() {
           )}
           {view === "agenda" && (
             <>
+              {!admin && !reception && ready && (
+                <DailyRouteButton date={date} />
+              )}
               {admin &&
                 history.some((v) => v.date === date && !v.deletedAt) && (
                   <section className="panel rh-analytics">
@@ -1088,6 +1092,15 @@ export default function Home() {
           )}
           {view === "routes" && (
             <>
+              {admin && (
+                <SavedRoutes
+                  from={date}
+                  vanId={van === "all" ? undefined : van}
+                />
+              )}
+              {!admin && !reception && ready && (
+                <DailyRouteButton date={date} />
+              )}
               {admin && <RouteDashboard {...routeProps} view="routes" />}
               {admin && (
                 <div>
@@ -1660,6 +1673,11 @@ export default function Home() {
           onNavigate={(nextDate, nextView) => {
             setDate(nextDate);
             setView(nextView);
+          }}
+          onRoadRoute={(route) => {
+            setDate(route.date);
+            setVan(route.vanId);
+            setView("routes");
           }}
         />
       )}

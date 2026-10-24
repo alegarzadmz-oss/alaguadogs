@@ -25,6 +25,7 @@ import {
   type SaveRoutePrice,
 } from "@/components/route-price-editor";
 import { ServiceCloseout } from "@/components/service-closeout";
+import { SavedRoutes } from "@/components/saved-routes";
 import {
   money,
   type State,
@@ -374,6 +375,11 @@ export function VanWeekProfile(props: Props) {
           </section>
         </TabsContent>
         <TabsContent value="routes">
+          <SavedRoutes
+            from={detail.days[0]}
+            to={detail.days[6]}
+            vanId={van.id}
+          />
           <section className="panel van-week-section">
             <h3>Rutas de lunes a domingo</h3>
             <p className="muted">

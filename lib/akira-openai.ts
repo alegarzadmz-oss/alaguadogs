@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { routeReadiness } from "./akira-routing";
-import { mapsRoutePlan } from "./maps-plan";
-import { computeMapsRoute } from "./google-maps";
+import { proposeRoadRoute } from "./road-proposal";
 import type { TeamMember } from "./team";
 import {
   akiraSystemPrompt,
@@ -82,7 +81,7 @@ const common = {
 const tools = [
   tool(
     "road_route_preview",
-    "Consulta Google Maps para ordenar por calles las visitas de una camioneta y fecha, incluyendo regreso a base. Consume una consulta del límite mensual compartido. Solo lectura, no cambia agenda ni confirma disponibilidad.",
+    "Consulta Google Maps para ordenar por calles las visitas de una camioneta y fecha, incluyendo regreso a base, y guarda la propuesta como borrador en su ficha. Consume una consulta mensual. No publica rutas ni cambia agenda o pagos.",
     { date: string, vanId: string },
   ),
   tool(
@@ -151,7 +150,7 @@ export async function chatWithAkira(
   const proposals: AkiraProposal[] = [];
   const roadResults = new Map<
     string,
-    Awaited<ReturnType<typeof computeMapsRoute>>
+    Awaited<ReturnType<typeof proposeRoadRoute>>
   >();
   const conversation: unknown[] = [...messages];
   let reply = "";
@@ -168,7 +167,7 @@ export async function chatWithAkira(
         include: ["reasoning.encrypted_content"],
         instructions:
           akiraSystemPrompt(ctx, selectedDate) +
-          `\nCONSULTA VIAL: ${process.env.GOOGLE_MAPS_API_KEY && member ? "Google Maps está configurado. Si solicitan ordenar por calles o la ruta más eficiente, consulta road_route_preview para cada camioneta elegida, después del diagnóstico. Usa los domicilios completos de base y visitas; esa consulta no requiere coordenadas guardadas. Si faltan domicilios, pide completarlos. Si ya devolvió un recorrido en esta respuesta, no lo repitas. Su resultado solo propone el orden por calles: no aplica horarios ni crea tarjeta para guardar, no compara ahorro con un recorrido original y no incluye tráfico en vivo ni duraciones de servicios. Las visitas históricas sin horario pueden consultarse por calles, pero no confirman disponibilidad ni se convierten en citas. Presenta el orden, kilómetros y minutos estimados de manejo, incluyendo regreso, sin afirmar que se guardó." : "Google Maps no está configurado; no llames road_route_preview."}`,
+          `\nCONSULTA VIAL: ${process.env.GOOGLE_MAPS_API_KEY && member ? "Google Maps está configurado. Si solicitan ordenar por calles o la ruta más eficiente, consulta road_route_preview para cada camioneta elegida, después del diagnóstico. Usa los domicilios completos de base y visitas; esa consulta no requiere coordenadas guardadas. Si faltan domicilios, pide completarlos. Si ya devolvió un recorrido en esta respuesta, no lo repitas. Su resultado solo propone el orden por calles: no aplica horarios ni crea tarjeta para guardar, no compara ahorro con un recorrido original y no incluye tráfico en vivo ni duraciones de servicios. Las visitas históricas sin horario pueden consultarse por calles, pero no confirman disponibilidad ni se convierten en citas. Presenta el orden, kilómetros y minutos estimados de manejo, incluyendo regreso, Aclara que el borrador se guarda si la herramienta devuelve draftSaved; la ruta solo se publica para el bañador cuando Administración la aprueba." : "Google Maps no está configurado; no llames road_route_preview."}`,
         input: conversation,
         tools,
         parallel_tool_calls: false,
@@ -192,7 +191,7 @@ export async function chatWithAkira(
           503,
         );
       throw new AkiraError(
-        "Akira no pudo responder en este momento. Intenta de nuevo; no se guardaron cambios.",
+        "Akira no pudo responder en este momento. Intenta de nuevo; la agenda no cambió. Revisa las rutas guardadas antes de repetir la consulta.",
         503,
       );
     }
@@ -218,9 +217,11 @@ export async function chatWithAkira(
             const key = `${input.date}:${input.vanId}`;
             let preview = roadResults.get(key);
             if (!preview) {
-              preview = await computeMapsRoute(
+              preview = await proposeRoadRoute(
                 member,
-                mapsRoutePlan(ctx.state, ctx.history, input.date, input.vanId),
+                ctx,
+                input.date,
+                input.vanId,
               );
               roadResults.set(key, preview);
             }
@@ -318,5 +319,6 @@ export async function chatWithAkira(
       reply || "Revisa los datos de la propuesta antes de confirmarla.",
     ),
     proposals,
+    roadRoutes: [...roadResults.values()].map((r) => r.savedRoute),
   };
 }

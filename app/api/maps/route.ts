@@ -6,8 +6,9 @@ import { readHistory } from "@/db/route-history";
 import { readMapsUsage } from "@/db/maps-usage";
 import { AccessError, type TeamMember } from "@/lib/team";
 import { MapsError } from "@/lib/maps-policy";
-import { mapsRoutePlan } from "@/lib/maps-plan";
-import { computeMapsRoute, geocodeAddress } from "@/lib/google-maps";
+import { geocodeAddress } from "@/lib/google-maps";
+import { proposeRoadRoute } from "@/lib/road-proposal";
+import { SavedRouteError } from "@/lib/saved-routes";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 const json = (body: unknown, status = 200) =>
@@ -39,6 +40,7 @@ async function usage(member: TeamMember) {
 function failure(e: unknown) {
   if (e instanceof AccessError) return json({ error: e.message }, 403);
   if (e instanceof MapsError) return json({ error: e.message }, e.status);
+  if (e instanceof SavedRouteError) return json({ error: e.message }, e.status);
   return json(
     { error: "No se pudo consultar Google Maps. Intenta de nuevo." },
     503,
@@ -89,13 +91,12 @@ export async function POST(request: Request) {
     const value = parsed.data;
     let result: unknown;
     if (value.action === "route") {
-      const plan = mapsRoutePlan(
-        state,
-        await readHistory(member),
+      result = await proposeRoadRoute(
+        member,
+        { state, history: await readHistory(member) },
         value.date,
         value.vanId,
       );
-      result = await computeMapsRoute(member, plan);
     } else {
       const address =
         value.target === "base"

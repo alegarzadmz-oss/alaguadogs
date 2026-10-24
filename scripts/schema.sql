@@ -98,3 +98,23 @@ CREATE TABLE IF NOT EXISTS maps_usage (
   used integer NOT NULL CHECK (used >= 0 AND used <= 1000),
   PRIMARY KEY (owner,month,service)
 );
+
+CREATE TABLE IF NOT EXISTS saved_routes (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  service_date date NOT NULL,
+  van_id text NOT NULL,
+  payload jsonb NOT NULL,
+  source_hash text NOT NULL,
+  dedupe_key text NOT NULL,
+  status text NOT NULL CHECK (status IN ('draft','active','replaced','withdrawn')),
+  created_at text NOT NULL,
+  created_by text NOT NULL,
+  published_at text,
+  assigned_to text,
+  assigned_name text,
+  revision integer NOT NULL DEFAULT 0,
+  UNIQUE(owner,dedupe_key)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS saved_routes_one_active ON saved_routes(owner,service_date,van_id) WHERE status='active';
+CREATE INDEX IF NOT EXISTS saved_routes_staff_day ON saved_routes(owner,assigned_to,service_date) WHERE status='active';

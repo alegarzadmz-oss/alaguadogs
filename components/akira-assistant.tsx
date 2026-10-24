@@ -19,9 +19,11 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Command } from "@/lib/operations";
 import type { AkiraMessage, AkiraProposal } from "@/lib/akira";
+import type { SavedRoute } from "@/lib/saved-routes";
 
 type Message = AkiraMessage & {
   proposals?: (AkiraProposal & { revision: number })[];
+  roadRoutes?: SavedRoute[];
 };
 export function AkiraAssistant({
   date,
@@ -29,12 +31,14 @@ export function AkiraAssistant({
   busy,
   onSave,
   onNavigate,
+  onRoadRoute,
 }: {
   date: string;
   revision: number;
   busy: boolean;
   onSave: (command: Command, operationId?: string) => Promise<boolean>;
   onNavigate: (date: string, view: "agenda" | "routes") => void;
+  onRoadRoute: (route: SavedRoute) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -75,6 +79,7 @@ export function AkiraAssistant({
       const data = (await response.json()) as {
         reply: string;
         proposals: AkiraProposal[];
+        roadRoutes?: SavedRoute[];
         revision: number;
         error?: string;
       };
@@ -85,6 +90,7 @@ export function AkiraAssistant({
         {
           role: "assistant",
           content: data.reply,
+          roadRoutes: data.roadRoutes || [],
           proposals: data.proposals.map((p) => ({
             ...p,
             revision: data.revision,
@@ -241,6 +247,30 @@ export function AkiraAssistant({
                   <span className="akira-speaker">AKIRA</span>
                 )}
                 <p>{message.content}</p>
+                {message.roadRoutes?.map((route) => (
+                  <section
+                    className="akira-proposal"
+                    key={route.id}
+                    aria-label={`Ruta guardada de ${route.van}`}
+                  >
+                    <strong>
+                      {route.van} · {route.date.split("-").reverse().join("/")}
+                    </strong>
+                    <p>
+                      {route.stops.length} paradas · Propuesta guardada en la
+                      ficha de la camioneta. Sigue disponible al recargar.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setOpen(false);
+                        onRoadRoute(route);
+                      }}
+                    >
+                      Ver ruta guardada
+                    </Button>
+                  </section>
+                ))}
                 {message.proposals?.map((p) => (
                   <section
                     className="akira-proposal"

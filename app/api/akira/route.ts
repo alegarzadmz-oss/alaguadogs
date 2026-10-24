@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     return json(
       {
         error:
-          "No se pudo completar la consulta. Intenta de nuevo; no se guardaron cambios.",
+          "No se pudo completar la consulta. Intenta de nuevo; la agenda no cambió. Revisa las rutas guardadas antes de repetir la consulta.",
       },
       503,
     );
