@@ -36,6 +36,7 @@ import {
   type RouteVisit,
 } from "@/lib/route-history";
 import { RouteCapture, RouteVisitEditor } from "@/components/route-capture";
+import { ServiceCloseout } from "@/components/service-closeout";
 
 type Props = {
   s: State;
@@ -806,6 +807,11 @@ export function RouteDashboard(props: Props) {
                           {v.kind === "history" ? "Revisar" : "Ver cita"}
                           <ArrowUpRight size={15} />
                         </Button>
+                      )}
+                      {!props.reception && v.kind === "history" && (
+                        <ServiceCloseout
+                          target={{ kind: "history", id: v.id }}
+                        />
                       )}
                       {!props.reception && v.clientId && (
                         <Button

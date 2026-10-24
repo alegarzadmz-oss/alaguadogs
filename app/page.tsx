@@ -88,6 +88,7 @@ import {
   type Command,
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
+import { ServiceCloseout } from "@/components/service-closeout";
 import { RouteCapture } from "@/components/route-capture";
 import { AkiraAssistant } from "@/components/akira-assistant";
 import {
@@ -2906,6 +2907,9 @@ function AppointmentDetail({
           >
             Finalizar servicio
           </Button>
+        )}
+        {a.status === "Completado" && (
+          <ServiceCloseout target={{ kind: "appointment", id: a.id }} />
         )}
         {balance(s, a) > 0 && (
           <Button

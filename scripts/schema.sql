@@ -35,3 +35,36 @@ CREATE TABLE IF NOT EXISTS route_visits (
 CREATE INDEX IF NOT EXISTS route_visits_date ON route_visits(owner, service_date);
 ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_role_check;
 ALTER TABLE team_members ADD CONSTRAINT team_members_role_check CHECK (role IN ('admin','groomer','reception'));
+
+CREATE TABLE IF NOT EXISTS service_closeouts (
+  owner text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('appointment','history')),
+  visit_id text NOT NULL,
+  payload jsonb NOT NULL,
+  revision integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (owner,kind,visit_id)
+);
+CREATE TABLE IF NOT EXISTS service_photos (
+  owner text NOT NULL,
+  id text PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('appointment','history')),
+  visit_id text NOT NULL,
+  pathname text NOT NULL UNIQUE,
+  caption text NOT NULL,
+  created_at text NOT NULL,
+  created_by text NOT NULL,
+  deleted_at text
+);
+CREATE INDEX IF NOT EXISTS service_photos_visit ON service_photos(owner,kind,visit_id);
+CREATE TABLE IF NOT EXISTS service_receipt_shares (
+  token_hash text PRIMARY KEY,
+  owner text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('appointment','history')),
+  visit_id text NOT NULL,
+  snapshot jsonb NOT NULL,
+  created_at text NOT NULL,
+  created_by text NOT NULL,
+  expires_at text NOT NULL,
+  revoked_at text
+);
+CREATE INDEX IF NOT EXISTS service_receipt_shares_visit ON service_receipt_shares(owner,kind,visit_id);
