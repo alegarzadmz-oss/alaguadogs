@@ -1,13 +1,69 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mapsMonth, MapsError } from "../lib/maps-policy.ts";
-import { mapsRoutePlan } from "../lib/maps-plan.ts";
+import { mapsRoutePlan, mapsAddressQuery } from "../lib/maps-plan.ts";
+import { routeReadiness } from "../lib/akira-routing.ts";
 import { mapsFetch, parseMapsRouteResponse } from "../lib/google-maps.ts";
 import { demoState, mutateState } from "../lib/operations.ts";
 
 test("Maps monthly limits reset at midnight in Monterrey, not UTC", () => {
   assert.equal(mapsMonth(new Date("2026-11-01T05:59:59Z")), "2026-10");
   assert.equal(mapsMonth(new Date("2026-11-01T06:00:00Z")), "2026-11");
+});
+
+test("abbreviated addresses get Nuevo León context without changing stored data or guessing a municipality", () => {
+  const address = "Magnolia 610, Privada Montebello. Entrada por Gómez Morín";
+  assert.equal(
+    mapsAddressQuery(address),
+    "Magnolia 610, Privada Montebello, Nuevo León, México",
+  );
+  assert.equal(
+    address,
+    "Magnolia 610, Privada Montebello. Entrada por Gómez Morín",
+  );
+  assert.equal(
+    mapsAddressQuery("Armenia 414"),
+    "Armenia 414, Nuevo León, México",
+  );
+  assert.equal(
+    mapsAddressQuery("Base 135, Nuevo León, México"),
+    "Base 135, Nuevo León, México",
+  );
+});
+
+test("road readiness allows complete addresses without GPS, but never allows missing addresses", () => {
+  const s = {
+    ...demoState(),
+    appointments: [],
+    base: { address: "Base de ejemplo 100", lat: null, lng: null },
+  };
+  const v = {
+    id: "visit",
+    date: "2026-10-23",
+    vanId: "v1",
+    order: 1,
+    clientName: "Client",
+    address: "Armenia 414",
+    clientId: null,
+    deletedAt: null,
+  };
+  const result = routeReadiness(
+    { state: s, members: [], history: [v] },
+    "2026-10-23",
+    "v1",
+    true,
+  );
+  assert.equal(result.vans[0].roadRoute.canQueryByAddress, true);
+  assert.equal(result.vans[0].readyToPreviewScheduledRoute, false);
+  assert.equal(
+    routeReadiness(
+      { state: s, members: [], history: [{ ...v, address: "" }] },
+      "2026-10-23",
+      "v1",
+      true,
+    ).vans[0].roadRoute.canQueryByAddress,
+    false,
+  );
 });
 test("road planning keeps distinct visits and customers at shared addresses; skips archived visits", () => {
   const s = {
@@ -217,5 +273,50 @@ test("Google one-stop sentinel keeps the only visit and its return; invalid mult
         two,
       ),
     /todas las paradas/,
+  );
+});
+
+test("Maps distinguishes a failed lookup from a partial match and identifies the affected visit", () => {
+  const plan = {
+    base: "Base",
+    stops: [
+      { id: "visit-1", client: "Client A", address: "Street 100" },
+      { id: "visit-2", client: "Client B", address: "Street 200" },
+    ],
+  };
+  const raw = {
+    routes: [
+      {
+        distanceMeters: 1000,
+        duration: "180s",
+        legs: [{ duration: "60s" }, { duration: "60s" }, { duration: "60s" }],
+        optimizedIntermediateWaypointIndex: [1, 0],
+      },
+    ],
+    geocodingResults: {
+      intermediates: [
+        {
+          intermediateWaypointRequestIndex: 0,
+          geocoderStatus: {},
+          partialMatch: true,
+        },
+        { intermediateWaypointRequestIndex: 1, geocoderStatus: {} },
+      ],
+    },
+  };
+  const result = parseMapsRouteResponse(raw, plan);
+  assert.equal(result.locationWarnings.length, 1);
+  assert.equal(result.locationWarnings[0].client, "Client A");
+  assert.deepEqual(
+    result.stops.map((s) => s.id),
+    ["visit-2", "visit-1"],
+  );
+  raw.geocodingResults.intermediates[1].geocoderStatus.code = 5;
+  assert.throws(
+    () => parseMapsRouteResponse(raw, plan),
+    (e) =>
+      e.status === 422 &&
+      e.message.includes("Client B (Street 200)") &&
+      !e.message.includes("Client A (Street 100)"),
   );
 });

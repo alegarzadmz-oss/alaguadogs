@@ -3,7 +3,7 @@ import { z } from "zod";
 import { reserveMapsRequests } from "@/db/maps-usage";
 import type { TeamMember } from "./team";
 import { MapsError, type MapsService } from "./maps-policy";
-import type { mapsRoutePlan } from "./maps-plan";
+import { mapsAddressQuery, type mapsRoutePlan } from "./maps-plan";
 
 export async function mapsFetch(
   member: TeamMember,
@@ -76,7 +76,7 @@ export async function geocodeAddress(member: TeamMember, address: string) {
     await mapsFetch(
       member,
       "geocoding",
-      `https://geocode.googleapis.com/v4/geocode/address/${encodeURIComponent(address)}?languageCode=es&regionCode=MX`,
+      `https://geocode.googleapis.com/v4/geocode/address/${encodeURIComponent(mapsAddressQuery(address))}?languageCode=es&regionCode=MX`,
       {
         headers: {
           "X-Goog-FieldMask":
@@ -127,16 +127,19 @@ export async function computeMapsRoute(
       headers: {
         "Content-Type": "application/json",
         "X-Goog-FieldMask":
-          "routes.distanceMeters,routes.duration,routes.optimizedIntermediateWaypointIndex,routes.legs.distanceMeters,routes.legs.duration",
+          "routes.distanceMeters,routes.duration,routes.optimizedIntermediateWaypointIndex,routes.legs.distanceMeters,routes.legs.duration,geocodingResults",
       },
       body: JSON.stringify({
-        origin: { address: plan.base },
-        destination: { address: plan.base },
-        intermediates: plan.stops.map((s) => ({ address: s.address })),
+        origin: { address: mapsAddressQuery(plan.base) },
+        destination: { address: mapsAddressQuery(plan.base) },
+        intermediates: plan.stops.map((s) => ({
+          address: mapsAddressQuery(s.address),
+        })),
         travelMode: "DRIVE",
         routingPreference: "TRAFFIC_UNAWARE",
         optimizeWaypointOrder: plan.stops.length > 1,
         languageCode: "es-MX",
+        regionCode: "MX",
         units: "METRIC",
       }),
     },
@@ -148,6 +151,53 @@ export function parseMapsRouteResponse(
   raw: unknown,
   plan: ReturnType<typeof mapsRoutePlan>,
 ) {
+  const geocoding = z
+    .object({
+      geocodingResults: z
+        .object({
+          intermediates: z
+            .array(
+              z.object({
+                intermediateWaypointRequestIndex: z
+                  .number()
+                  .int()
+                  .optional()
+                  .default(0),
+                partialMatch: z.boolean().optional(),
+                geocoderStatus: z
+                  .object({ code: z.number().optional() })
+                  .optional(),
+              }),
+            )
+            .optional()
+            .default([]),
+        })
+        .optional(),
+    })
+    .safeParse(raw);
+  const points = geocoding.success
+    ? geocoding.data.geocodingResults?.intermediates || []
+    : [];
+  const failed = points
+    .filter((p) => (p.geocoderStatus?.code || 0) !== 0)
+    .map((p) => plan.stops[p.intermediateWaypointRequestIndex])
+    .filter(Boolean);
+  if (failed.length)
+    throw new MapsError(
+      `Google Maps no ubicó estos domicilios: ${failed.map((s) => `${s.client} (${s.address})`).join("; ")}. Revisa el domicilio o pin antes de calcular el recorrido.`,
+      422,
+    );
+  const locationWarnings = points
+    .filter((p) => p.partialMatch)
+    .map((p) => plan.stops[p.intermediateWaypointRequestIndex])
+    .filter(Boolean)
+    .map((s) => ({
+      id: s.id,
+      client: s.client,
+      address: s.address,
+      reason:
+        "Google reconoció parcialmente el domicilio; verifica el punto de acceso.",
+    }));
   const parsed = routeResult.safeParse(raw);
   const route = parsed.success ? parsed.data.routes[0] : undefined;
   // One stop has only one possible order. Google can return a -1 sentinel for
@@ -179,7 +229,11 @@ export function parseMapsRouteResponse(
     returnMinutes: minutes(route.legs.at(-1)!.duration),
     saved: false,
     attribution: "Google Maps",
+    locationWarnings,
     warning:
-      "Consulta de recorrido por calles, sin tráfico en vivo. Incluye salida y regreso a base. Verifica las ubicaciones; no cambia citas, horarios, clientes ni pagos. No garantiza el óptimo global.",
+      "Consulta de recorrido por calles, sin tráfico en vivo. Incluye salida y regreso a base. Verifica las ubicaciones; no cambia citas, horarios, clientes ni pagos. No garantiza el óptimo global." +
+      (locationWarnings.length
+        ? ` Ubicaciones por verificar: ${locationWarnings.map((s) => s.client).join(", ")}.`
+        : ""),
   };
 }

@@ -3,6 +3,15 @@ import type { RouteVisit } from "./route-history";
 import { validDay } from "./route-history";
 import { MapsError } from "./maps-policy";
 
+// Search context for this Monterrey business, not a change to a customer's
+// stored address. Access instructions after a full stop aren't a postal address.
+export function mapsAddressQuery(address: string) {
+  const postal = address.split(/\.\s*(?:entrada|acceso)\b/i)[0].trim();
+  return /nuevo le[oó]n\b|\bn\.\s*l\./i.test(postal)
+    ? postal
+    : `${postal}, Nuevo León, México`;
+}
+
 export function mapsRoutePlan(
   state: State,
   history: RouteVisit[],
