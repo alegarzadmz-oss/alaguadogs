@@ -210,6 +210,9 @@ export function TeamAccess({
               >
                 <option value="groomer">Bañador/a</option>
                 <option value="admin">Administración / dueña</option>
+                <option value="reception">
+                  Recepción · solo Transferencias
+                </option>
               </select>
             </div>
             {form.role === "groomer" && (

@@ -148,7 +148,7 @@ export async function changeMember(
       input.name.length > 120
     )
       throw Error("Indica el nombre de la persona.");
-    if (!["admin", "groomer"].includes(String(input.role)))
+    if (!["admin", "groomer", "reception"].includes(String(input.role)))
       throw Error("Selecciona un rol válido.");
     const name = input.name.trim();
     const role = String(input.role);
@@ -190,7 +190,7 @@ export async function changeMember(
         ],
       );
     }
-    action = `Acceso ${existing ? "editado" : "creado"}: ${name} · ${role === "admin" ? "Administración" : "Bañador/a"}`;
+    action = `Acceso ${existing ? "editado" : "creado"}: ${name} · ${role === "admin" ? "Administración" : role === "reception" ? "Recepción · Transferencias" : "Bañador/a"}`;
   } else {
     if (!existing) throw Error("Acceso no encontrado.");
     if (command.version !== existing.version)

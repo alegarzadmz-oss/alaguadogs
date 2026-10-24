@@ -3,6 +3,195 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
+.capture-dialog {
+  width: min(960px, calc(100vw - 24px));
+  max-width: 960px !important;
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+}
+.capture-form,
+.capture-fields {
+  display: grid;
+  gap: 16px;
+}
+.capture-form label,
+.capture-fields label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.capture-form input,
+.capture-form select,
+.capture-form textarea,
+.capture-fields input,
+.capture-fields select,
+.capture-fields textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cec7c5;
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: white;
+  color: #1c1b34;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+.capture-form textarea,
+.capture-fields textarea {
+  resize: vertical;
+}
+.capture-source {
+  min-height: 190px;
+  line-height: 1.6;
+}
+.capture-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.capture-summary {
+  border: 1px solid #89d9cf;
+  background: #edfaf6;
+  border-radius: 12px;
+  padding: 16px;
+}
+.capture-summary strong {
+  display: block;
+  margin-bottom: 7px;
+}
+.capture-summary p,
+.capture-summary small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.capture-preview {
+  border: 1px solid #e5deda;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.capture-preview details > summary {
+  cursor: pointer;
+  color: #666174;
+  font-size: 13px;
+  padding: 5px 0 12px;
+}
+.capture-pet {
+  border: 1px solid #e5deda;
+  border-radius: 10px;
+  padding: 13px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.capture-pet legend {
+  font-size: 13px;
+  font-weight: bold;
+  padding: 0 5px;
+}
+.capture-services {
+  display: grid;
+  gap: 12px;
+}
+.capture-service {
+  display: grid;
+  grid-template-columns: minmax(100px, 2fr) minmax(100px, 1.5fr) minmax(
+      65px,
+      0.7fr
+    ) 32px;
+  gap: 8px;
+  align-items: end;
+}
+.capture-service > button {
+  padding: 5px;
+  min-width: 30px;
+}
+.capture-warning {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff2dd;
+  color: #744d15;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.capture-warning > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.capture-form label.rh-checkbox,
+.capture-fields label.rh-checkbox,
+.capture-warning label.rh-checkbox,
+.capture-preview > label.rh-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.capture-form input[type="checkbox"],
+.capture-fields input[type="checkbox"] {
+  width: 17px;
+  min-width: 17px;
+  margin-top: 2px;
+}
+.capture-archive {
+  margin-top: 16px;
+  border-top: 1px solid #e5deda;
+  padding-top: 16px;
+  display: grid;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.capture-archive h3 {
+  font-size: 14px;
+  font-weight: bold;
+}
+.capture-archived {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 0;
+  border-bottom: 1px solid #e5deda;
+  font-size: 13px;
+}
+.capture-future-day {
+  background: #f3faf8;
+}
+.capture-today {
+  box-shadow: inset 3px 0 #ff5e41;
+}
+.capture-week-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .capture-two {
+    grid-template-columns: 1fr;
+  }
+  .capture-service {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .capture-service > button {
+    justify-self: end;
+  }
+  .capture-week-metrics {
+    grid-template-columns: 1fr;
+  }
+  .capture-dialog {
+    padding: 16px;
+  }
+  .capture-archived {
+    flex-direction: column;
+  }
+}
+
 .akira-launcher {
   position: fixed;
   right: 24px;

@@ -88,6 +88,7 @@ import {
   type Command,
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
+import { RouteCapture } from "@/components/route-capture";
 import { AkiraAssistant } from "@/components/akira-assistant";
 import {
   RouteDashboard,
@@ -95,6 +96,7 @@ import {
 } from "@/components/route-dashboard";
 import {
   summarizeVisits,
+  serviceCounts,
   boardVisits,
   type RouteVisit,
 } from "@/lib/route-history";
@@ -228,14 +230,18 @@ export default function Home() {
   const historyRequest = useRef(0);
   const requestNumber = useRef(0);
   const admin = team?.viewer.role === "admin";
-  const view =
-    !admin &&
-    ["analytics", "settings", "weekly", "transfers"].includes(chosenView)
+  const reception = team?.viewer.role === "reception";
+  const view = reception
+    ? "transfers"
+    : !admin &&
+        ["analytics", "settings", "weekly", "transfers"].includes(chosenView)
       ? "agenda"
       : chosenView;
-  const allowedViews = views.filter(
-    (v) =>
-      admin || !["analytics", "settings", "weekly", "transfers"].includes(v.id),
+  const allowedViews = views.filter((v) =>
+    reception
+      ? v.id === "transfers"
+      : admin ||
+        !["analytics", "settings", "weekly", "transfers"].includes(v.id),
   );
   function denyAccess() {
     ++historyRequest.current;
@@ -280,7 +286,7 @@ export default function Home() {
     record: RouteVisit,
     changes: Record<string, unknown>,
   ) {
-    if (!ready || busy || !admin) return false;
+    if (!ready || busy || (!admin && !reception)) return false;
     setBusy(true);
     setError("");
     ++requestNumber.current;
@@ -322,6 +328,38 @@ export default function Home() {
       setBusy(false);
     }
   }
+  async function manageHistory(body: Record<string, unknown>) {
+    if (!ready || busy || !admin) return false;
+    setBusy(true);
+    setError("");
+    ++requestNumber.current;
+    ++historyRequest.current;
+    setHistoryLoading(false);
+    try {
+      const response = await fetch("/api/route-capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await response.json()) as {
+        visit?: RouteVisit;
+        error?: string;
+      };
+      if (!response.ok || !data.visit) {
+        if ([401, 403, 409].includes(response.status)) void refresh();
+        throw Error(data.error || "No se pudo guardar la visita.");
+      }
+      const visit = data.visit;
+      setHistory((rows) => rows.map((v) => (v.id === visit.id ? visit : v)));
+      setNotice("Visita actualizada en rutas, cobros y estadísticas.");
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
   async function refresh() {
     const ticket = ++requestNumber.current;
     setError("");
@@ -345,7 +383,8 @@ export default function Home() {
       setTeam(d.team);
       setReady(true);
       setSignIn(false);
-      if (d.team.viewer.role === "admin") void loadHistory();
+      if (["admin", "reception"].includes(d.team.viewer.role))
+        void loadHistory();
       else {
         ++historyRequest.current;
         setHistory([]);
@@ -358,6 +397,8 @@ export default function Home() {
     }
   }
   useEffect(() => {
+    if (window.location.pathname === "/transferencias")
+      queueMicrotask(() => setView("transfers"));
     const token = new URLSearchParams(window.location.hash.slice(1)).get(
       "equipo",
     );
@@ -485,9 +526,9 @@ export default function Home() {
       ).catch(() => {});
     } catch {}
     return () => lifecycle.abort();
-  }, [date, admin]);
+  }, [date, admin, reception]);
   const open = (kind: string, record?: any) => {
-    if (!ready) return;
+    if (!ready || reception) return;
     if (
       !admin &&
       [
@@ -569,7 +610,10 @@ export default function Home() {
   );
   const signInLink =
     "/sign-in?redirect_url=" +
-    encodeURIComponent("/" + (joinToken ? "#equipo=" + joinToken : ""));
+    encodeURIComponent(
+      (reception || chosenView === "transfers" ? "/transferencias" : "/") +
+        (joinToken ? "#equipo=" + joinToken : ""),
+    );
   const routeProps = {
     s,
     history,
@@ -577,6 +621,8 @@ export default function Home() {
     van,
     error: historyError,
     loading: historyLoading,
+    reception,
+    onManage: manageHistory,
     onDate: setDate,
     onVan: setVan,
     onView: setView,
@@ -742,7 +788,9 @@ export default function Home() {
               <p className="eyebrow">
                 {view === "agenda"
                   ? "CADA VISITA, EN SU LUGAR"
-                  : "AL’AGUA DOGS / ADMINISTRACIÓN"}
+                  : reception
+                    ? "AL’AGUA DOGS / RECEPCIÓN"
+                    : "AL’AGUA DOGS / ADMINISTRACIÓN"}
               </p>
               <h1>{views.find((v) => v.id === view)?.label}</h1>
               <p className="muted">
@@ -767,6 +815,15 @@ export default function Home() {
                 }
               </p>
             </div>
+            {admin && view === "agenda" && (
+              <RouteCapture
+                s={s}
+                history={history}
+                date={date}
+                van={van}
+                onImported={loadHistory}
+              />
+            )}
             {admin && ["agenda", "routes"].includes(view) ? (
               <Button disabled={!ready} onClick={() => open("appointment")}>
                 <Plus /> Nueva cita
@@ -841,21 +898,30 @@ export default function Home() {
           )}
           {view === "agenda" && (
             <>
-              {admin && history.some((v) => v.date === date) && (
-                <section className="panel rh-analytics">
-                  <h2>Visitas importadas del día</h2>
-                  <p>
-                    {history.filter((v) => v.date === date).length} visitas ·{" "}
-                    {history
-                      .filter((v) => v.date === date)
-                      .reduce((sum, v) => sum + v.pets.length, 0)}{" "}
-                    mascotas. Sus horarios y servicios aún no están capturados.
-                  </p>
-                  <Button variant="outline" onClick={() => setView("routes")}>
-                    Revisar rutas y cobros importados
-                  </Button>
-                </section>
-              )}
+              {admin &&
+                history.some((v) => v.date === date && !v.deletedAt) && (
+                  <section className="panel rh-analytics">
+                    <h2>Visitas de ruta sin horario</h2>
+                    <p>
+                      {
+                        history.filter((v) => v.date === date && !v.deletedAt)
+                          .length
+                      }{" "}
+                      visitas ·{" "}
+                      {history
+                        .filter((v) => v.date === date && !v.deletedAt)
+                        .reduce(
+                          (sum, v) => sum + serviceCounts(v).full,
+                          0,
+                        )}{" "}
+                      mascotas con servicio completo o por clasificar. Los
+                      horarios siguen pendientes.
+                    </p>
+                    <Button variant="outline" onClick={() => setView("routes")}>
+                      Revisar operación y cobros de rutas
+                    </Button>
+                  </section>
+                )}
               <div className="metrics">
                 {[
                   [
@@ -1125,7 +1191,7 @@ export default function Home() {
           {admin && view === "weekly" && (
             <RouteDashboard {...routeProps} view="weekly" />
           )}
-          {admin && view === "transfers" && (
+          {(admin || reception) && view === "transfers" && (
             <RouteDashboard {...routeProps} view="transfers" />
           )}
           {view === "clients" && (
@@ -1262,9 +1328,7 @@ export default function Home() {
                   <TabsTrigger value="pending">Saldos abiertos</TabsTrigger>
                   <TabsTrigger value="history">Historial de pagos</TabsTrigger>
                   {admin && (
-                    <TabsTrigger value="routes">
-                      Cobros de rutas importadas
-                    </TabsTrigger>
+                    <TabsTrigger value="routes">Cobros de rutas</TabsTrigger>
                   )}
                 </TabsList>
                 <TabsContent value="pending">
@@ -1379,8 +1443,8 @@ export default function Home() {
               </Tabs>
               <p className="footnote">
                 Los cobros del día y saldos abiertos de esta sección
-                corresponden a las citas de agenda. El historial importado y su
-                revisión están en «Cobros de rutas importadas». Registro
+                corresponden a las citas de agenda. Las rutas capturadas o
+                importadas y su revisión están en «Cobros de rutas». Registro
                 administrativo de pagos recibidos. La tarjeta se cobra en tu
                 terminal y la transferencia se verifica en tu banco.
               </p>

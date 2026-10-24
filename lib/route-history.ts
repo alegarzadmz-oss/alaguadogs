@@ -9,6 +9,17 @@ export const paymentMethods = [
   "Transferencia",
 ] as const;
 export type RouteMethod = (typeof paymentMethods)[number];
+export type RouteService = {
+  name: string;
+  kind: "full" | "additional" | "unknown";
+  quantity: number;
+};
+export type RoutePet = {
+  name: string;
+  breed: string;
+  quantity?: number;
+  services?: RouteService[];
+};
 export type RouteVisit = {
   id: string;
   date: string;
@@ -18,7 +29,15 @@ export type RouteVisit = {
   clientId: string | null;
   clientName: string;
   address: string;
-  pets: { name: string; breed: string }[];
+  pets: RoutePet[];
+  extras?: RouteService[];
+  notes?: string;
+  origin?: "captured" | "imported";
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  confirmedBy?: string | null;
+  receiptUpdatedAt?: string;
+  receiptUpdatedBy?: string;
   price: number | null;
   method: RouteMethod;
   received: boolean | null;
@@ -107,7 +126,24 @@ export function appointmentVisits(state: State): BoardVisit[] {
         clientId: a.clientId,
         clientName: client?.name || "Cliente no disponible",
         address: client?.address || "",
-        pets: [{ name: pet?.name || "Mascota", breed: pet?.breed || "" }],
+        pets: [
+          {
+            name: pet?.name || "Mascota",
+            breed: pet?.breed || "",
+            services: state.services.some((s) => s.id === a.serviceId)
+              ? [
+                  {
+                    name: state.services.find((s) => s.id === a.serviceId)!
+                      .name,
+                    kind: classifyService(
+                      state.services.find((s) => s.id === a.serviceId)!.name,
+                    ),
+                    quantity: 1,
+                  },
+                ]
+              : [],
+          },
+        ],
         price: a.price,
         method: (methods.length === 1
           ? methods[0]
@@ -129,21 +165,28 @@ export function appointmentVisits(state: State): BoardVisit[] {
 export function boardVisits(state: State, history: RouteVisit[]): BoardVisit[] {
   return [
     ...appointmentVisits(state),
-    ...history.map((v) => ({
-      ...v,
-      kind: "history" as const,
-      paidAmount: v.received ? (v.price ?? 0) : 0,
-      time: null,
-    })),
+    ...history
+      .filter((v) => !v.deletedAt)
+      .map((v) => ({
+        ...v,
+        kind: "history" as const,
+        paidAmount: v.received ? (v.price ?? 0) : 0,
+        time: null,
+      })),
   ];
 }
 export function summarizeVisits(visits: BoardVisit[]) {
   // Scheduled services at one address share a stop, but each service retains its price.
   const addresses = new Set(
-    visits.map((v) => `${v.date}|${v.vanId}|${normalized(v.address) || v.id}`),
+    visits.map(
+      (v) =>
+        `${v.date}|${v.vanId}|${/direcci[oó]n (?:no indicada|por confirmar)/i.test(v.address) ? v.id : normalized(v.address) || v.id}`,
+    ),
   );
   return {
-    pets: visits.reduce((n, v) => n + v.pets.length, 0),
+    pets: visits.reduce((n, v) => n + serviceCounts(v).full, 0),
+    additional: visits.reduce((n, v) => n + serviceCounts(v).additional, 0),
+    unclassified: visits.reduce((n, v) => n + serviceCounts(v).unclassified, 0),
     stops: addresses.size,
     amount: visits.reduce((n, v) => n + (v.price ?? 0), 0),
     missingPrice: visits.filter((v) => v.price === null).length,
@@ -153,6 +196,36 @@ export function summarizeVisits(visits: BoardVisit[]) {
       0,
     ),
   };
+}
+export function classifyService(name: string): RouteService["kind"] {
+  const value = normalized(name);
+  if (/unas|unias|oidos|dientes/.test(value)) return "additional";
+  if (/bano|corte/.test(value)) return "full";
+  return "unknown";
+}
+export function serviceCounts(v: Pick<RouteVisit, "pets" | "extras">) {
+  let full = 0,
+    additional = 0,
+    unclassified = 0;
+  for (const p of v.pets) {
+    const quantity = p.quantity ?? 1;
+    if (!p.services?.length || p.services.some((s) => s.kind === "unknown")) {
+      unclassified += quantity;
+      // Preserve legacy counts; disclose that their service classification is unknown.
+      if (!p.services?.some((s) => s.kind === "full")) full += quantity;
+    }
+    if (p.services?.some((s) => s.kind === "full")) full += quantity;
+    additional +=
+      p.services
+        ?.filter((s) => s.kind === "additional")
+        .reduce((n, s) => n + s.quantity, 0) ?? 0;
+  }
+  additional +=
+    v.extras?.reduce(
+      (n, s) => n + (s.kind === "additional" ? s.quantity : 0),
+      0,
+    ) ?? 0;
+  return { full, additional, unclassified };
 }
 export function vanLoads(visits: BoardVisit[], vans: Van[]) {
   return vans.map((v) => ({
@@ -253,6 +326,14 @@ export function routeCSV(visits: BoardVisit[], vans: Van[]) {
     "Estado de cobro",
     "Confirmación",
     "Origen",
+    "Razas",
+    "Servicios por mascota",
+    "Servicios adicionales",
+    "Observaciones",
+    "Confirmado por",
+    "Confirmado el",
+    "Servicios completos o por clasificar",
+    "Adicionales",
   ];
   return (
     "\uFEFF" +
@@ -273,6 +354,19 @@ export function routeCSV(visits: BoardVisit[], vans: Van[]) {
             : "Por verificar",
         v.confirmationNote,
         v.source,
+        v.pets.map((p) => `${p.name}: ${p.breed}`).join("; "),
+        v.pets
+          .map(
+            (p) =>
+              `${p.name}: ${p.services?.map((s) => `${s.quantity} × ${s.name} (${s.kind === "full" ? "completo" : s.kind === "additional" ? "adicional" : "por clasificar"})`).join(" + ") || "Servicio por confirmar"}`,
+          )
+          .join("; "),
+        v.extras?.map((s) => `${s.quantity} × ${s.name}`).join("; ") || "",
+        v.notes || "",
+        v.confirmedBy || "",
+        v.confirmedAt || "",
+        serviceCounts(v).full,
+        serviceCounts(v).additional,
       ]),
     ]
       .map((row) => row.map(csvCell).join(","))

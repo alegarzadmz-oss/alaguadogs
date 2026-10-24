@@ -2,7 +2,7 @@ import type { Appointment, Command, State } from "./operations";
 
 export const BUSINESS_KEY = "business:alagua-dogs";
 export const BOOTSTRAP_MEMBER_ID = "alagua-administration";
-export type TeamRole = "admin" | "groomer";
+export type TeamRole = "admin" | "groomer" | "reception";
 export type MemberStatus = "pending" | "active" | "inactive";
 export type TeamMember = {
   id: string;
@@ -18,7 +18,11 @@ export type Viewer = Pick<TeamMember, "id" | "name" | "role" | "vanId">;
 export type PublicMember = Omit<TeamMember, "userId"> & { activated: boolean };
 export type TeamContext = { viewer: Viewer; members: PublicMember[] };
 export const roleLabel = (role: TeamRole) =>
-  role === "admin" ? "Administración" : "Bañador/a";
+  role === "admin"
+    ? "Administración"
+    : role === "reception"
+      ? "Recepción · Transferencias"
+      : "Bañador/a";
 
 export class AccessError extends Error {
   constructor(
@@ -42,6 +46,39 @@ export function belongsTo(member: TeamMember, appointment: Appointment) {
 // Always apply this projection on the server, including write responses and retries.
 export function visibleState(state: State, member: TeamMember): State {
   if (member.role === "admin") return state;
+  if (member.role === "reception") {
+    const payments = state.payments.filter((p) => p.method === "Transferencia");
+    const ids = new Set(payments.map((p) => p.appointmentId));
+    const appointments = state.appointments.filter((a) => ids.has(a.id));
+    const clients = new Set(appointments.map((a) => a.clientId));
+    return {
+      ...state,
+      appointments: appointments.map((a) => ({
+        ...a,
+        cost: 0,
+        extraCost: 0,
+        notes: "",
+        groomer: "",
+      })),
+      clients: state.clients
+        .filter((c) => clients.has(c.id))
+        .map((c) => ({
+          ...c,
+          phone: "",
+          notes: "",
+          lat: null,
+          lng: null,
+          pets: c.pets.map((p) => ({ ...p, notes: "" })),
+        })),
+      payments,
+      vans: state.vans.map((v) => ({ ...v, groomer: "", notes: "" })),
+      services: [],
+      incidents: [],
+      audit: [],
+      operations: [],
+      base: { address: "", lat: null, lng: null },
+    };
+  }
   const appointments = state.appointments.filter((a) => belongsTo(member, a));
   const ids = new Set(appointments.map((a) => a.id));
   const clientIds = new Set(appointments.map((a) => a.clientId));
@@ -76,6 +113,10 @@ export function authorizeCommand(
   if (member.status !== "active")
     throw new AccessError("Tu acceso está desactivado.");
   if (member.role === "admin") return;
+  if (member.role === "reception")
+    throw new AccessError(
+      "Recepción solo puede consultar y confirmar transferencias.",
+    );
   let appointmentId: unknown;
   if (command.type === "status") {
     if (!["En servicio", "Completado"].includes(String(command.status)))

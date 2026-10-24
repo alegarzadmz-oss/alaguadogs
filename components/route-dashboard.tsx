@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import { Download, ArrowUpRight, CircleAlert, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +21,13 @@ import {
 } from "@/components/ui/table";
 import {
   money,
+  today,
   type Appointment,
   type Client,
   type State,
 } from "@/lib/operations";
 import {
   boardVisits,
-  paymentMethods,
   routeCSV,
   summarizeVisits,
   vanLoads,
@@ -35,6 +35,7 @@ import {
   type BoardVisit,
   type RouteVisit,
 } from "@/lib/route-history";
+import { RouteCapture, RouteVisitEditor } from "@/components/route-capture";
 
 type Props = {
   s: State;
@@ -44,6 +45,8 @@ type Props = {
   van: string;
   error: string;
   loading: boolean;
+  reception?: boolean;
+  onManage: (body: Record<string, unknown>) => Promise<boolean>;
   onDate: (date: string) => void;
   onVan: (id: string) => void;
   onView: (view: string) => void;
@@ -87,6 +90,10 @@ export function RouteDashboard(props: Props) {
   const [period, setPeriod] = useState("day");
   const [status, setStatus] = useState("all");
   const [linkStatus, setLinkStatus] = useState("all");
+  const [receiptBusy, setReceiptBusy] = useState<string | null>(null);
+  const [localError, setLocalError] = useState("");
+  const [showArchive, setShowArchive] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState<RouteVisit | null>(null);
   const all = useMemo(() => boardVisits(s, history), [s, history]);
   const days = weekDays(date);
@@ -101,7 +108,8 @@ export function RouteDashboard(props: Props) {
       (view === "payments"
         ? v.kind === "history"
         : v.method === "Transferencia" &&
-          (period === "week" ? days.includes(v.date) : v.date === date)) &&
+          (period === "all" ||
+            (period === "week" ? days.includes(v.date) : v.date === date))) &&
       (van === "all" || v.vanId === van),
   );
   const sourceRows =
@@ -118,7 +126,9 @@ export function RouteDashboard(props: Props) {
         (status === "received"
           ? v.received === true
           : status === "pending"
-            ? v.received === false
+            ? v.method === "Transferencia"
+              ? v.received !== true
+              : v.received === false
             : v.received === null)),
   );
   const summary = summarizeVisits(sourceRows);
@@ -129,7 +139,11 @@ export function RouteDashboard(props: Props) {
   const maxLoad = Math.max(0, ...loads.map((v) => v.pets));
   const actualMin = loads.length ? Math.min(...loads.map((v) => v.pets)) : 0;
   const difference = maxLoad - actualMin;
-  const weeklyTransfers = inWeek.filter((v) => v.method === "Transferencia");
+  const weeklyTransfers = paymentRows.filter(
+    (v) => v.method === "Transferencia",
+  );
+  const elapsed = summarizeVisits(inWeek.filter((v) => v.date <= today()));
+  const future = summarizeVisits(inWeek.filter((v) => v.date > today()));
   const receivedTransfers = weeklyTransfers.filter((v) => v.received === true);
   const pendingTransfers = weeklyTransfers.filter((v) => v.received !== true);
   const metricText = {
@@ -143,11 +157,9 @@ export function RouteDashboard(props: Props) {
   return (
     <section
       className="route-dashboard"
-      aria-label={
-        view === "payments" ? "Cobros de rutas importadas" : "Tablero de rutas"
-      }
+      aria-label={view === "payments" ? "Cobros de rutas" : "Tablero de rutas"}
     >
-      {view !== "payments" && (
+      {view !== "payments" && !props.reception && (
         <div className="rh-tabs" aria-label="Vistas de rutas">
           {(
             [
@@ -183,22 +195,89 @@ export function RouteDashboard(props: Props) {
           Cargando historial de rutas…
         </p>
       )}
-      <p className="footnote rh-origin">
-        Agenda actual e historial importado comparten este tablero. Las visitas
-        importadas conservan su domicilio y mascotas originales; sus horarios,
-        servicios y costos no están confirmados. La importación es una copia del
-        historial, sin sincronización automática con el portal anterior.{" "}
-        {history.length} visitas importadas;{" "}
-        {history.filter((v) => !v.clientId).length} por vincular con una ficha.
-      </p>
+      {!props.reception && (
+        <>
+          <div className="button-row">
+            {(view === "routes" || view === "weekly") && (
+              <RouteCapture
+                s={s}
+                history={history}
+                date={date}
+                van={van}
+                onImported={props.onReload}
+              />
+            )}
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    new URL("/transferencias", window.location.origin).href,
+                  );
+                  setCopied(true);
+                } catch {
+                  setLocalError(
+                    "Copia este enlace: " +
+                      new URL("/transferencias", window.location.origin).href,
+                  );
+                }
+              }}
+            >
+              {copied ? "Enlace copiado" : "Copiar enlace para Recepción"}
+            </Button>
+            {view === "routes" && (
+              <Button
+                variant="ghost"
+                onClick={() => setShowArchive(!showArchive)}
+              >
+                Archivo ({history.filter((v) => v.deletedAt).length})
+              </Button>
+            )}
+          </div>
+          <p className="footnote rh-origin">
+            Agenda y rutas utilizan los mismos registros en las vistas de
+            operación, cobros y estadísticas.{" "}
+            {
+              history.filter((v) => !v.deletedAt && v.origin !== "captured")
+                .length
+            }{" "}
+            visitas históricas importadas y{" "}
+            {
+              history.filter((v) => !v.deletedAt && v.origin === "captured")
+                .length
+            }{" "}
+            capturadas aquí;{" "}
+            {history.filter((v) => !v.deletedAt && !v.clientId).length} por
+            vincular con una ficha. Las rutas sin horario no sustituyen citas
+            con hora confirmada.
+          </p>
+        </>
+      )}
+      {localError && (
+        <p role="alert" className="message error">
+          {localError}
+        </p>
+      )}
+      {props.reception && (
+        <p className="footnote">
+          Acceso de Recepción: consulta y marca transferencias después de
+          revisar el comprobante. No hay conexión bancaria ni verificación
+          automática de WhatsApp.
+        </p>
+      )}
       {view === "transfers" ? (
         <>
           <h2>
-            Transferencias · {shortDay(days[0])} al {shortDay(days[6])}
+            Transferencias ·{" "}
+            {period === "all"
+              ? "todo el historial"
+              : period === "week"
+                ? `${shortDay(days[0])} al ${shortDay(days[6])}`
+                : shortDay(date)}
           </h2>
           <div className="metrics">
             <Metric
-              label="Pendientes de la semana"
+              label="Pendientes del periodo"
               value={String(pendingTransfers.length)}
               note={
                 money(summarizeVisits(pendingTransfers).toVerify) +
@@ -206,7 +285,7 @@ export function RouteDashboard(props: Props) {
               }
             />
             <Metric
-              label="Recibidas de la semana"
+              label="Recibidas del periodo"
               value={String(receivedTransfers.length)}
               note={
                 money(summarizeVisits(receivedTransfers).received) +
@@ -250,6 +329,24 @@ export function RouteDashboard(props: Props) {
             >
               Semana completa
             </Button>
+            <Button
+              variant={period === "all" ? "default" : "outline"}
+              aria-pressed={period === "all"}
+              onClick={() => {
+                setPeriod("all");
+              }}
+            >
+              Todo el historial
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPeriod("all");
+                setStatus("pending");
+              }}
+            >
+              Ver todos los pendientes
+            </Button>
           </div>
         </>
       ) : (
@@ -279,6 +376,32 @@ export function RouteDashboard(props: Props) {
             note="Incluye registros sin confirmación de cobro"
           />
         </div>
+      )}
+      {view === "weekly" && (
+        <div className="metrics capture-week-metrics">
+          <Metric
+            label="Acumulado hasta hoy"
+            value={money(elapsed.amount)}
+            note={`${elapsed.pets} mascotas · ${elapsed.missingPrice} visitas sin precio`}
+          />
+          <Metric
+            label="Días futuros"
+            value={money(future.amount)}
+            note={`${future.pets} mascotas · ${future.missingPrice} visitas sin precio`}
+          />
+          <Metric
+            label="Servicios adicionales"
+            value={String(summary.additional)}
+            note="No incrementan el conteo de servicios completos"
+          />
+        </div>
+      )}
+      {summary.unclassified > 0 && !props.reception && (
+        <p className="footnote">
+          {summary.unclassified} mascotas tienen servicios por clasificar. Se
+          conservan sus conteos anteriores hasta que se revisen; los adicionales
+          identificados se cuentan aparte.
+        </p>
       )}
       {view === "routes" && (
         <section className="panel rh-loads">
@@ -315,7 +438,8 @@ export function RouteDashboard(props: Props) {
                   />
                 </div>
                 <small>
-                  {v.stops} domicilios · {money(v.amount)}
+                  {v.stops} domicilios · {v.additional} adicionales ·{" "}
+                  {money(v.amount)}
                 </small>
               </button>
             ))}
@@ -362,7 +486,16 @@ export function RouteDashboard(props: Props) {
             </TableHeader>
             <TableBody>
               {days.map((d) => (
-                <TableRow key={d}>
+                <TableRow
+                  key={d}
+                  className={
+                    d > today()
+                      ? "capture-future-day"
+                      : d === today()
+                        ? "capture-today"
+                        : ""
+                  }
+                >
                   <TableCell>
                     <b>{shortDay(d)}</b>
                   </TableCell>
@@ -493,16 +626,20 @@ export function RouteDashboard(props: Props) {
                 <option value="unknown">Por verificar</option>
               </select>
             </label>
-            <label>
-              Ficha de cliente
-              <select
-                value={linkStatus}
-                onChange={(e) => setLinkStatus(e.target.value)}
-              >
-                <option value="all">Todas las visitas</option>
-                <option value="unlinked">Por vincular</option>
-              </select>
-            </label>
+            {!props.reception && (
+              <>
+                <label>
+                  Ficha de cliente
+                  <select
+                    value={linkStatus}
+                    onChange={(e) => setLinkStatus(e.target.value)}
+                  >
+                    <option value="all">Todas las visitas</option>
+                    <option value="unlinked">Por vincular</option>
+                  </select>
+                </label>
+              </>
+            )}
             <Button
               aria-label="Actualizar historial de rutas"
               variant="outline"
@@ -540,11 +677,13 @@ export function RouteDashboard(props: Props) {
                       </small>
                       <b>{v.clientName}</b>
                       <small className="cell-sub">{v.address}</small>
-                      {v.kind === "history" && !v.clientId && (
-                        <small className="rh-warning">
-                          Cliente por vincular
-                        </small>
-                      )}
+                      {!props.reception &&
+                        v.kind === "history" &&
+                        !v.clientId && (
+                          <small className="rh-warning">
+                            Cliente por vincular
+                          </small>
+                        )}
                     </TableCell>
                     <TableCell>
                       {v.pets.map((p, i) => (
@@ -552,9 +691,28 @@ export function RouteDashboard(props: Props) {
                           <b>{p.name}</b>
                           <small className="cell-sub">
                             {p.breed || "Raza por confirmar"}
+                            {(p.quantity ?? 1) > 1
+                              ? ` · ${p.quantity} mascotas`
+                              : ""}
+                            {p.services?.map((service, j) => (
+                              <span className="cell-sub" key={j}>
+                                {service.name} ·{" "}
+                                {service.kind === "additional"
+                                  ? `${service.quantity} adicional(es)`
+                                  : service.kind === "full"
+                                    ? "Completo"
+                                    : "Por clasificar"}
+                              </span>
+                            ))}
                           </small>
                         </div>
                       ))}
+                      {v.extras?.map((extra, i) => (
+                        <small className="cell-sub" key={i}>
+                          {extra.quantity} × {extra.name} · adicional
+                        </small>
+                      ))}
+                      {v.notes && <small className="cell-sub">{v.notes}</small>}
                     </TableCell>
                     <TableCell>
                       {s.vans.find((van) => van.id === v.vanId)?.name ||
@@ -585,16 +743,71 @@ export function RouteDashboard(props: Props) {
                             Abonado: {money(v.paidAmount)}
                           </small>
                         )}
+                      {v.kind === "history" &&
+                        v.method !== "Pendiente" &&
+                        (!props.reception || v.method === "Transferencia") && (
+                          <label className="rh-checkbox">
+                            <input
+                              type="checkbox"
+                              aria-label={`Pago recibido de ${v.clientName} el ${v.date}`}
+                              checked={v.received === true}
+                              disabled={
+                                receiptBusy !== null || v.price === null
+                              }
+                              onChange={async (e) => {
+                                const received = e.target.checked;
+                                setReceiptBusy(v.id);
+                                setLocalError("");
+                                try {
+                                  const changes = props.reception
+                                    ? { received }
+                                    : {
+                                        price: v.price,
+                                        method: v.method,
+                                        received,
+                                        clientId: v.clientId,
+                                        vanId: v.vanId,
+                                      };
+                                  if (!(await props.onSave(v, changes)))
+                                    setLocalError(
+                                      "No se pudo actualizar el cobro. Revisa el aviso y actualiza antes de intentar otra vez.",
+                                    );
+                                } finally {
+                                  setReceiptBusy(null);
+                                }
+                              }}
+                            />{" "}
+                            Recibido
+                          </label>
+                        )}
+                      {v.confirmedBy && (
+                        <small className="cell-sub">
+                          Confirmó {v.confirmedBy}
+                          {v.confirmedAt
+                            ? ` · ${new Date(v.confirmedAt).toLocaleString("es-MX")}`
+                            : ""}
+                        </small>
+                      )}
+                      {v.receiptUpdatedBy && v.received !== true && (
+                        <small className="cell-sub">
+                          Último cambio: {v.receiptUpdatedBy}
+                          {v.receiptUpdatedAt
+                            ? ` · ${new Date(v.receiptUpdatedAt).toLocaleString("es-MX")}`
+                            : ""}
+                        </small>
+                      )}
                       {v.confirmationNote && (
                         <small className="cell-sub">{v.confirmationNote}</small>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" onClick={() => openRow(v)}>
-                        {v.kind === "history" ? "Revisar" : "Ver cita"}
-                        <ArrowUpRight size={15} />
-                      </Button>
-                      {v.clientId && (
+                      {!props.reception && (
+                        <Button variant="ghost" onClick={() => openRow(v)}>
+                          {v.kind === "history" ? "Revisar" : "Ver cita"}
+                          <ArrowUpRight size={15} />
+                        </Button>
+                      )}
+                      {!props.reception && v.clientId && (
                         <Button
                           variant="ghost"
                           onClick={() => {
@@ -622,25 +835,68 @@ export function RouteDashboard(props: Props) {
           </p>
         </section>
       )}
+      {showArchive && !props.reception && (
+        <section className="panel">
+          <h2>Archivo recuperable</h2>
+          <p>
+            Las visitas retiradas no participan en los totales. Se conservan sus
+            datos y cobros.
+          </p>
+          {history
+            .filter((v) => v.deletedAt)
+            .map((v) => (
+              <div className="capture-archived" key={v.id}>
+                <div>
+                  <b>
+                    {v.clientName} · {shortDay(v.date)}
+                  </b>
+                  <p>{v.address}</p>
+                  <small>
+                    Retiró {v.deletedBy || "Administración"} ·{" "}
+                    {v.deletedAt &&
+                      new Date(v.deletedAt).toLocaleString("es-MX")}
+                  </small>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (
+                      !(await props.onManage({
+                        action: "restore",
+                        id: v.id,
+                        revision: v.revision,
+                      }))
+                    )
+                      setLocalError(
+                        "No se pudo restaurar. Actualiza antes de intentar otra vez.",
+                      );
+                  }}
+                >
+                  Restaurar visita
+                </Button>
+              </div>
+            ))}
+        </section>
+      )}
       <Dialog
-        open={!!editing}
+        open={!!editing && !props.reception}
         onOpenChange={(open) => !open && setEditing(null)}
       >
         <DialogContent className="rh-dialog">
           <DialogHeader>
-            <DialogTitle>Revisar visita importada</DialogTitle>
+            <DialogTitle>Revisar visita de ruta</DialogTitle>
             <DialogDescription>
               Corrige el importe, vincula la ficha o confirma el cobro después
               de verificarlo.
             </DialogDescription>
           </DialogHeader>
           {editing && (
-            <HistoryEditor
+            <RouteVisitEditor
               key={editing.id + editing.revision}
               record={editing}
               s={s}
-              onSave={async (changes) => {
-                const saved = await props.onSave(editing, changes);
+              onAction={async (body) => {
+                const saved = await props.onManage(body);
                 if (saved) setEditing(null);
                 return saved;
               }}
@@ -668,153 +924,12 @@ function Metric({
     </div>
   );
 }
-function HistoryEditor({
-  record,
-  s,
-  onSave,
-}: {
-  record: RouteVisit;
-  s: State;
-  onSave: (changes: Record<string, unknown>) => Promise<boolean>;
-}) {
-  const [price, setPrice] = useState(
-    record.price === null ? "" : (record.price / 100).toFixed(2),
-  );
-  const [method, setMethod] = useState(record.method);
-  const [received, setReceived] = useState(record.received);
-  const [clientId, setClient] = useState(record.clientId || "");
-  const [vanId, setVan] = useState(record.vanId);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const cents = price === "" ? null : Math.round(Number(price) * 100);
-  const changed = cents !== record.price || method !== record.method;
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (saving) return;
-    if (
-      price !== "" &&
-      (!/^\d+(\.\d{1,2})?$/.test(price) ||
-        !Number.isSafeInteger(cents) ||
-        Number(cents) < 0)
-    ) {
-      setError("Indica un precio válido con hasta dos decimales.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      if (
-        !(await onSave({
-          price: cents,
-          method,
-          received,
-          clientId: clientId || null,
-          vanId,
-        }))
-      )
-        setError(
-          "No se pudo guardar. Si otra persona cambió la visita, cierra y vuelve a abrir su revisión para ver los datos actuales.",
-        );
-    } catch {
-      setError("No se pudo guardar. Reintenta sin cerrar el formulario.");
-    } finally {
-      setSaving(false);
-    }
-  }
-  return (
-    <form className="rh-editor" onSubmit={submit}>
-      <div>
-        <h2>{record.clientName}</h2>
-        <p>{record.address}</p>
-        <p className="muted">
-          {shortDay(record.date)} · {record.pets.map((p) => p.name).join(", ")}
-        </p>
-      </div>
-      <label>
-        Ficha de cliente
-        <select value={clientId} onChange={(e) => setClient(e.target.value)}>
-          <option value="">Sin vincular · conservar dato original</option>
-          {s.clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name} · {c.address}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Camioneta
-        <select value={vanId} onChange={(e) => setVan(e.target.value)}>
-          {s.vans.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Importe total de la visita (MXN)
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          value={price}
-          placeholder="Sin precio capturado"
-          onChange={(e) => setPrice(e.target.value)}
-        />
-      </label>
-      <label>
-        Forma de pago
-        <select
-          value={method}
-          onChange={(e) => setMethod(e.target.value as RouteVisit["method"])}
-        >
-          {paymentMethods.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-      </label>
-      {changed ? (
-        <p className="rh-warning" role="status">
-          Al cambiar el importe o la forma de pago se reinicia la confirmación.
-          Guarda y vuelve a revisar el cobro.
-        </p>
-      ) : (
-        <label className="rh-checkbox">
-          <input
-            type="checkbox"
-            checked={received === true}
-            disabled={saving || cents === null || method === "Pendiente"}
-            onChange={(e) => setReceived(e.target.checked)}
-          />{" "}
-          Confirmo que este pago fue recibido
-        </label>
-      )}
-      {record.confirmationNote && (
-        <p className="muted">
-          Confirmación original: {record.confirmationNote}
-        </p>
-      )}
-      <p className="footnote">
-        Esta visita conserva el domicilio original y no crea una cita con
-        horarios o servicios supuestos. Vincular una ficha no cambia los datos
-        del cliente.
-      </p>
-      {error && (
-        <p role="alert" className="rh-warning">
-          {error}
-        </p>
-      )}
-      <Button type="submit" disabled={saving}>
-        {saving ? "Guardando…" : "Guardar revisión"}
-      </Button>
-    </form>
-  );
-}
 export function ClientRouteHistory({ visits }: { visits: RouteVisit[] }) {
+  visits = visits.filter((v) => !v.deletedAt);
   if (!visits.length) return null;
   return (
     <section className="rh-client-history">
-      <h2>Rutas importadas</h2>
+      <h2>Visitas de rutas</h2>
       <p className="muted">
         Estos registros conservan su importe por visita y su confirmación de
         cobro.

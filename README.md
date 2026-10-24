@@ -42,7 +42,9 @@ La publicación original permanece disponible durante la transferencia. Una vez 
 
 Administración dispone de rutas diarias, carga por camioneta, resumen semanal y seguimiento de transferencias. La agenda y el historial importado se consultan juntos; las visitas importadas conservan sus datos originales, sin inventar horarios, servicios, costos ni una confirmación de cobro.
 
-El historial vive en `route_visits`, separado del estado de agenda. La API exige una cuenta activa de administración y protege los cambios con revisión de fila y auditoría. Cambiar el importe o la forma de pago reinicia la confirmación. Efectivo y tarjeta sin confirmación en el origen quedan «Por verificar».
+El historial vive en `route_visits`, separado del estado de agenda. La API exige una cuenta activa autorizada y protege los cambios con revisión de fila y auditoría. Administración puede capturar, pegar y revisar rutas; Recepción solo puede consultar transferencias y confirmar o desmarcar su recepción. Cambiar el importe o la forma de pago reinicia la confirmación. Efectivo y tarjeta sin confirmación en el origen quedan «Por verificar».
+
+La [implementación de la guía operativa](docs/guia-operativa-implementacion.md) explica la vista previa de rutas, servicios completos y adicionales, archivo reversible, acceso de Recepción y los 12 casos de comprobación.
 
 Para una importación supervisada, guarda los CSV diarios como `routes-AAAA-MM-DD.csv` y las confirmaciones extraídas de la consulta como `transfers-week-AAAA-MM-DD.json` dentro de una carpeta `private/`. Verifica primero la correspondencia VAN A–D / Camioneta 01–04 y ejecuta la migración de esquema en el entorno elegido. Ejecuta el importador sin `--apply` para obtener la revisión previa:
 

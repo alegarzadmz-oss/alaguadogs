@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS team_members (
   id text PRIMARY KEY,
   email text UNIQUE NOT NULL,
   name text NOT NULL,
-  role text NOT NULL CHECK (role IN ('admin', 'groomer')),
+  role text NOT NULL CHECK (role IN ('admin', 'groomer', 'reception')),
   van_id text NOT NULL DEFAULT '',
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'inactive')),
   user_id text UNIQUE,
@@ -33,3 +33,5 @@ CREATE TABLE IF NOT EXISTS route_visits (
   PRIMARY KEY (owner, id)
 );
 CREATE INDEX IF NOT EXISTS route_visits_date ON route_visits(owner, service_date);
+ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_role_check;
+ALTER TABLE team_members ADD CONSTRAINT team_members_role_check CHECK (role IN ('admin','groomer','reception'));

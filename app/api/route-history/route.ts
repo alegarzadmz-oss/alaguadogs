@@ -1,11 +1,8 @@
 import { getPortalUser } from "@/lib/auth";
 import { memberFor } from "@/db/team";
-import {
-  readHistory,
-  requireHistoryAdmin,
-  updateHistory,
-} from "@/db/route-history";
+import { readHistory, updateHistory } from "@/db/route-history";
 import { AccessError } from "@/lib/team";
+import { requireRouteReader } from "@/lib/route-permissions";
 export const dynamic = "force-dynamic";
 const json = (value: unknown, status = 200) =>
   Response.json(value, {
@@ -36,7 +33,7 @@ export async function POST(request: Request) {
     if (origin && origin !== new URL(request.url).origin)
       return json({ error: "Origen no permitido." }, 403);
     const member = await memberFor(user);
-    requireHistoryAdmin(member);
+    requireRouteReader(member);
     const raw = await request.text();
     if (raw.length > 10000)
       return json({ error: "Solicitud demasiado grande." }, 413);
