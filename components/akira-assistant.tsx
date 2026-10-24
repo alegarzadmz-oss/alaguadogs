@@ -7,7 +7,6 @@ import {
   Check,
   LoaderCircle,
   RotateCcw,
-  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -157,11 +156,6 @@ export function AkiraAssistant({
         aria-label="Hablar con Akira, asistente de agenda y rutas"
       >
         <Image src="/brand/akira-boxer.png" alt="" width={64} height={64} />
-        <span>
-          <strong>Akira</strong>
-          <small>Agenda y rutas</small>
-        </span>
-        <Sparkles size={17} aria-hidden="true" />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="akira-dialog">

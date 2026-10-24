@@ -196,33 +196,22 @@
   right: 24px;
   bottom: 24px;
   z-index: 35;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 16px 6px 5px;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  padding: 4px;
   border: 1px solid #1c1b3420;
-  border-radius: 38px;
+  border-radius: 50%;
   background: #fffaf4;
   color: #1c1b34;
   box-shadow: 0 7px 28px #1c1b3426;
   cursor: pointer;
-  text-align: left;
 }
 .akira-launcher img {
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
-}
-.akira-launcher span {
-  display: grid;
-  gap: 1px;
-}
-.akira-launcher strong {
-  font-size: 17px;
-}
-.akira-launcher small {
-  font-size: 11px;
-  color: #666174;
 }
 .akira-launcher:hover {
   background: #e7f8f4;
@@ -520,11 +509,12 @@
   .akira-launcher {
     right: 14px;
     bottom: max(14px, env(safe-area-inset-bottom));
-    padding-right: 13px;
+    width: 60px;
+    height: 60px;
   }
   .akira-launcher img {
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
   }
   .akira-dialog {
     width: calc(100vw - 16px);
