@@ -2548,7 +2548,24 @@ h1 {
 .rh-pending-price span, .rh-pending-price small { color: var(--muted-foreground); }
 .rh-history-price { justify-items: end; flex-shrink: 0; }
 .rh-price-dialog { max-width: 34rem; }
+.van-week-open { display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; margin-top: .3rem; }
+.van-week-header, .van-week-section { padding: 1.25rem; }
+.van-week-header h2 { font-size: 1.5rem; margin: .4rem 0; }
+.van-week-select { display: flex; gap: .55rem; align-items: center; font-size: .9rem; }
+.van-week-select select { border: 1px solid var(--border); border-radius: .6rem; padding: .55rem; background: white; }
+.van-week-tabs [role="tablist"] { flex-wrap: wrap; height: auto; gap: .35rem; max-width: 100%; }
+.van-week-tabs [role="tab"] { padding: .7rem 1rem; }
+.van-week-section h3 { font-size: 1.1rem; font-weight: 750; margin: .4rem 0 1rem; }
+.van-week-client, .van-week-payment, .van-week-day li { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.van-week-client h4, .van-week-day h4 { font-weight: 750; }
+.van-week-client small, .van-week-day small { color: var(--muted-foreground); }
+.van-week-day { padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.van-week-day ol { list-style: decimal; padding-left: 1.4rem; }
+.van-week-methods { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0 1.5rem; }
+.van-week-methods > div { border: 1px solid var(--border); border-radius: .75rem; padding: 1rem; background: #eff9f7; min-width: 10rem; }
+.van-week-methods dd { margin-top: .35rem; font-size: 1.3rem; font-weight: 750; }
 @media (max-width: 600px) {
+  .van-week-client, .van-week-payment, .van-week-day li, .van-week-select { flex-direction: column; }
   .rh-pending-price { align-items: flex-start; flex-direction: column; }
   .rh-client-history .history-item { align-items: flex-start; flex-wrap: wrap; }
 }

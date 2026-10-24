@@ -37,6 +37,7 @@ import {
 } from "@/lib/route-history";
 import { RouteCapture, RouteVisitEditor } from "@/components/route-capture";
 import { ServiceCloseout } from "@/components/service-closeout";
+import { VanWeekProfile } from "@/components/van-week-profile";
 import {
   RoutePriceDialog,
   type SaveRoutePrice,
@@ -103,6 +104,7 @@ export function RouteDashboard(props: Props) {
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState<RouteVisit | null>(null);
   const [priceEditing, setPriceEditing] = useState<RouteVisit | null>(null);
+  const [weeklyProfileId, setWeeklyProfileId] = useState<string | null>(null);
   const all = useMemo(() => boardVisits(s, history), [s, history]);
   const weekly = useMemo(
     () => weeklyDashboard(all, s.vans, date, van),
@@ -171,6 +173,38 @@ export function RouteDashboard(props: Props) {
 
   const openRow = (v: BoardVisit) =>
     v.appointment ? props.onAppointment(v.appointment) : setEditing(v);
+  const profileVan = s.vans.find((v) => v.id === weeklyProfileId);
+  if (view === "weekly" && profileVan && !props.reception)
+    return (
+      <VanWeekProfile
+        key={profileVan.id}
+        s={s}
+        visits={all}
+        van={profileVan}
+        date={date}
+        loading={props.loading}
+        error={props.error}
+        onBack={() => {
+          setWeeklyProfileId(null);
+          onVan("all");
+        }}
+        onVan={(id) => {
+          setWeeklyProfileId(id);
+          onVan(id);
+        }}
+        onReload={props.onReload}
+        onRoute={(day) => {
+          onDate(day);
+          onVan(profileVan.id);
+          onView("routes");
+        }}
+        onClient={props.onClient}
+        onAppointment={props.onAppointment}
+        onSave={props.onSave}
+        onManage={props.onManage}
+        onExport={(rows) => downloadRows(rows, s, days[0])}
+      />
+    );
   return (
     <section
       className="route-dashboard"
@@ -410,8 +444,7 @@ export function RouteDashboard(props: Props) {
                   {shortDay(days[6])}
                 </h2>
                 <p className="muted">
-                  Selecciona una camioneta para filtrar los indicadores y el
-                  detalle diario.
+                  Abre la ficha de una camioneta para consultar toda su semana.
                 </p>
               </div>
               <Button
@@ -428,9 +461,11 @@ export function RouteDashboard(props: Props) {
                   type="button"
                   className={`rh-load rh-van-${i} rh-week-van`}
                   key={v.id}
-                  aria-pressed={van === v.id}
-                  aria-label={`Ver semana de ${v.name}`}
-                  onClick={() => onVan(v.id)}
+                  aria-label={`Abrir ficha semanal de ${v.name}`}
+                  onClick={() => {
+                    onVan(v.id);
+                    setWeeklyProfileId(v.id);
+                  }}
                 >
                   <b>{v.name}</b>
                   <strong>
@@ -452,6 +487,9 @@ export function RouteDashboard(props: Props) {
                   <small>Registrado: {money(v.amount)}</small>
                   <small>Por cobrar / verificar: {money(v.toVerify)}</small>
                   <small>{v.missingPrice} precios pendientes</small>
+                  <span className="van-week-open">
+                    Ver ficha semanal <ArrowUpRight size={15} />
+                  </span>
                 </button>
               ))}
             </div>
