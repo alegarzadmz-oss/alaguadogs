@@ -2550,6 +2550,13 @@ h1 {
 .rh-price-dialog { max-width: 34rem; }
 .van-week-open { display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; margin-top: .3rem; }
 .van-week-header, .van-week-section { padding: 1.25rem; }
+.van-week-profile, .van-week-tabs, .van-week-tabs [role="tabpanel"], .van-week-section { min-width: 0; max-width: 100%; }
+.van-week-section td { white-space: normal; vertical-align: top; }
+.van-week-section td:nth-child(1) { min-width: 8rem; }
+.van-week-section td:nth-child(2), .van-week-section td:nth-child(4) { min-width: 10rem; }
+.van-week-section td:nth-child(3) { min-width: 14rem; }
+.van-week-section td:nth-child(5) { min-width: 9rem; }
+.van-week-section td:last-child button { display: flex; margin-bottom: .4rem; }
 .van-week-header h2 { font-size: 1.5rem; margin: .4rem 0; }
 .van-week-select { display: flex; gap: .55rem; align-items: center; font-size: .9rem; }
 .van-week-select select { border: 1px solid var(--border); border-radius: .6rem; padding: .55rem; background: white; }

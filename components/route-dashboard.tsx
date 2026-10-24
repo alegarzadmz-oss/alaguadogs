@@ -104,7 +104,7 @@ export function RouteDashboard(props: Props) {
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState<RouteVisit | null>(null);
   const [priceEditing, setPriceEditing] = useState<RouteVisit | null>(null);
-  const [weeklyProfileId, setWeeklyProfileId] = useState<string | null>(null);
+  const [weeklyProfileOpen, setWeeklyProfileOpen] = useState(false);
   const all = useMemo(() => boardVisits(s, history), [s, history]);
   const weekly = useMemo(
     () => weeklyDashboard(all, s.vans, date, van),
@@ -173,7 +173,9 @@ export function RouteDashboard(props: Props) {
 
   const openRow = (v: BoardVisit) =>
     v.appointment ? props.onAppointment(v.appointment) : setEditing(v);
-  const profileVan = s.vans.find((v) => v.id === weeklyProfileId);
+  const profileVan = weeklyProfileOpen
+    ? s.vans.find((v) => v.id === van)
+    : undefined;
   if (view === "weekly" && profileVan && !props.reception)
     return (
       <VanWeekProfile
@@ -185,11 +187,10 @@ export function RouteDashboard(props: Props) {
         loading={props.loading}
         error={props.error}
         onBack={() => {
-          setWeeklyProfileId(null);
+          setWeeklyProfileOpen(false);
           onVan("all");
         }}
         onVan={(id) => {
-          setWeeklyProfileId(id);
           onVan(id);
         }}
         onReload={props.onReload}
@@ -464,7 +465,7 @@ export function RouteDashboard(props: Props) {
                   aria-label={`Abrir ficha semanal de ${v.name}`}
                   onClick={() => {
                     onVan(v.id);
-                    setWeeklyProfileId(v.id);
+                    setWeeklyProfileOpen(true);
                   }}
                 >
                   <b>{v.name}</b>

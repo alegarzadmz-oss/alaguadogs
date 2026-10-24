@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -74,6 +74,12 @@ type Props = {
 };
 
 export function VanWeekProfile(props: Props) {
+  const profileRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    profileRef.current?.scrollIntoView({ block: "start" });
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
   const { s, van, date } = props;
   const detail = useMemo(
     () => vanWeekDetail(s, props.visits, date, van.id),
@@ -104,6 +110,7 @@ export function VanWeekProfile(props: Props) {
         ].join(" / ") || "Sin pago registrado";
   return (
     <section
+      ref={profileRef}
       className="route-dashboard van-week-profile"
       aria-label={`Ficha semanal de ${van.name}`}
     >
@@ -131,7 +138,7 @@ export function VanWeekProfile(props: Props) {
       </div>
       <header className="panel van-week-header">
         <p className="eyebrow">FICHA SEMANAL DE OPERACIÓN</p>
-        <h2>
+        <h2 ref={headingRef} tabIndex={-1}>
           {van.name} · {dayLabel(detail.days[0])} al {dayLabel(detail.days[6])}
         </h2>
         <p>
