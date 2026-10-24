@@ -199,6 +199,15 @@ export function AkiraAssistant({
                 </p>
                 <div className="akira-starters">
                   <button
+                    onClick={() =>
+                      void send(
+                        `Revisa qué falta para optimizar las rutas de las cuatro camionetas del ${date}, considerando salida y regreso a base, ubicaciones y horarios.`,
+                      )
+                    }
+                  >
+                    Revisar preparación de rutas
+                  </button>
+                  <button
                     onClick={() => {
                       setInput("Quiero agendar una cita para ");
                     }}

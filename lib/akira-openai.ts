@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { routeReadiness } from "./akira-routing";
 import {
   akiraSystemPrompt,
   bookingProposal,
@@ -76,6 +77,11 @@ const common = {
   date: string,
 };
 const tools = [
+  tool(
+    "route_readiness",
+    "Revisa las cuatro camionetas o una elegida: base, ubicaciones faltantes, visitas sin horario y servicios que deben conservarse. No modifica datos.",
+    { date: string, vanId: nullable },
+  ),
   tool(
     "find_clients",
     "Busca fichas por nombre, mascota o domicilio. No determina identidad por nombre solamente.",
@@ -171,6 +177,14 @@ export async function chatWithAkira(
       try {
         const args = JSON.parse(call.arguments || "{}");
         switch (call.name) {
+          case "route_readiness": {
+            const input = z
+              .object({ date, vanId: id.nullable() })
+              .strict()
+              .parse(args);
+            result = routeReadiness(ctx, input.date, input.vanId);
+            break;
+          }
           case "find_clients":
             result = findClients(
               ctx.state,

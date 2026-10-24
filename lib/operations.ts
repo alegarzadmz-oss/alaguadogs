@@ -1,3 +1,5 @@
+import { optimizeRoundTrip } from "./route-optimizer";
+
 export type Client = {
   id: string;
   name: string;
@@ -564,6 +566,10 @@ export function mutateState(
         t += a.duration;
         return next;
       });
+      if (t + route.returnMinutes > 1440)
+        fail(
+          "La ruta, incluido el regreso a la base, terminaría después de medianoche.",
+        );
       s.appointments = s.appointments.filter((a) => !ids.has(a.id));
       for (const a of pending) {
         s.appointments.push(validateAppointment(s, a));
@@ -623,6 +629,8 @@ export function routeProposal(
   legs: number[];
   distance: number;
   originalDistance: number;
+  returnMinutes: number;
+  optimization: "exact" | "heuristic" | "none";
   error?: string;
 } {
   const all = s.appointments
@@ -635,6 +643,8 @@ export function routeProposal(
     legs: [],
     distance: 0,
     originalDistance: 0,
+    returnMinutes: 0,
+    optimization: "none" as const,
   };
   if (all.some((a) => a.status !== "Confirmado"))
     return {
@@ -647,6 +657,12 @@ export function routeProposal(
       ...empty,
       error: "No hay servicios confirmados para esta camioneta.",
     };
+  if (all.length > 60)
+    return {
+      ...empty,
+      error:
+        "Divide esta jornada: el cálculo admite hasta 60 paradas por camioneta.",
+    };
   if (s.base.lat === null || s.base.lng === null)
     return {
       ...empty,
@@ -654,53 +670,21 @@ export function routeProposal(
     };
   const base = s.base as { lat: number; lng: number };
   const points = all.map((a) => s.clients.find((c) => c.id === a.clientId)!);
-  if (points.some((c) => c.lat === null || c.lng === null))
+  if (points.some((c) => !c || c.lat === null || c.lng === null))
     return {
       ...empty,
       error:
         "Agrega las coordenadas de todos los domicilios en Clientes y mascotas.",
     };
   const point = (i: number) => points[i] as { lat: number; lng: number };
-  const cost = (order: number[]) =>
-    order.reduce(
-      (d, i, k) => d + km(k ? point(order[k - 1]) : base, point(i)),
-      0,
-    ) + km(point(order[order.length - 1]), base);
-  let order = all.map((_, i) => i),
-    best = cost(order);
-  const originalDistance = best;
-  if (all.length <= 8) {
-    const search = (path: number[], left: number[]) => {
-      if (!left.length) {
-        const d = cost(path);
-        if (d < best) {
-          best = d;
-          order = path;
-        }
-        return;
-      }
-      for (const i of left)
-        search(
-          [...path, i],
-          left.filter((j) => j !== i),
-        );
-    };
-    search([], order);
-  } else {
-    const remaining = [...order];
-    const nearest: number[] = [];
-    let at = base;
-    while (remaining.length) {
-      remaining.sort((i, j) => km(at, point(i)) - km(at, point(j)));
-      const next = remaining.shift()!;
-      nearest.push(next);
-      at = point(next);
-    }
-    if (cost(nearest) < best) {
-      order = nearest;
-      best = cost(order);
-    }
-  }
+  const locations = [base, ...all.map((_, i) => point(i))];
+  const matrix = locations.map((from) => locations.map((to) => km(from, to)));
+  const {
+    order,
+    distance: best,
+    originalDistance,
+    algorithm,
+  } = optimizeRoundTrip(matrix);
   return {
     appointments: order.map((i) => all[i]),
     legs: order.map((i, k) =>
@@ -713,5 +697,9 @@ export function routeProposal(
     ),
     distance: Math.round(best * 10) / 10,
     originalDistance: Math.round(originalDistance * 10) / 10,
+    returnMinutes: Math.ceil(
+      ((km(point(order[order.length - 1]), base) * 1.3) / 25) * 60,
+    ),
+    optimization: algorithm,
   };
 }

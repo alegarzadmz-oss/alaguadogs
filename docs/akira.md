@@ -9,11 +9,16 @@ Asistente interno de AL’AGUA DOGS para administración. Se abre con el botón 
 - Consulta citas con horario y distingue las visitas históricas importadas, que no confirman disponibilidad.
 - Propone horarios y camionetas según carga, zona y coordenadas disponibles. Valida cruces de camioneta, bañador y mascota.
 - Presenta una tarjeta con cliente, mascota, domicilio, servicio, horario, camioneta, duración y precio del catálogo. El botón de confirmación guarda mediante la API existente de operaciones, con control de revisión e idempotencia.
-- Reordena citas confirmadas con el motor existente cuando la base y todos los domicilios tienen coordenadas. La tarjeta permite revisar los nuevos horarios antes de aplicarlos.
+- La habilidad de planificación está en `lib/akira-routing.ts`: `route_readiness` revisa base, ubicaciones, visitas sin horario y servicios iniciados/terminados para una camioneta o las cuatro. El botón **Revisar preparación de rutas** permite pedir ese diagnóstico desde el chat.
+- Reordena citas confirmadas cuando la base y todos los domicilios tienen coordenadas. El motor compara el circuito completo incluyendo el regreso a base: búsqueda exacta hasta 12 paradas y una heurística de varios inicios con mejora 2-opt para 13–60. La heurística conserva un recorrido no peor que el orden inicial, pero no garantiza el óptimo global. La tarjeta muestra ahorro y regreso estimados para revisar los nuevos horarios antes de aplicarlos. La API vuelve a calcular y validar la ruta al confirmar.
 
 ## Límites explícitos
 
 Las distancias son en línea recta, y los traslados son estimaciones. No se conectó un proveedor de mapas, calles o tráfico. Si faltan coordenadas, Akira informa qué datos completar; para sugerir una camioneta puede usar coincidencia de zona y carga. El horario de búsqueda predeterminado (09:00–18:00) es una ventana de sugerencia, no un horario comercial confirmado.
+
+El historial archivado se excluye del diagnóstico. Una visita cuyo domicilio difiere de la ficha no hereda sus coordenadas. Las visitas sin horario bloquean la aplicación de una reorganización de citas de esa camioneta y fecha, porque aún no se puede comprobar su disponibilidad. El regreso a la base debe terminar dentro del mismo día. La preparación no captura ubicaciones, cambia pagos ni convierte visitas de ruta en citas.
+
+La integración vial de Google Maps está pendiente de activación y clave restringida de servidor en el proyecto `alagua-dogs-rutas` (ALAGUA DOGS Rutas). Todavía falta confirmar el punto exacto de la base. No se guardó una coordenada aproximada ni se enviaron los domicilios a un geocodificador público.
 
 Los precios y duraciones vienen del catálogo y deben revisarse para cada mascota. No se inventan tiempos para el historial importado. Las herramientas del modelo no escriben: las citas y rutas se aplican únicamente con la confirmación visible. Las propuestas caducan si cambia la revisión de la agenda.
 
