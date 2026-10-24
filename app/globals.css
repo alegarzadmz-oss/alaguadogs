@@ -2583,3 +2583,13 @@ h1 {
 .maps-result li { margin-block: .6rem; }
 .maps-result a { text-decoration: underline; }
 .maps-attribution { white-space: nowrap; font-style: normal; font-weight: 400; color: #5e5e5e; font-size: 14px; letter-spacing: normal; }
+.maps-panel { padding: 24px; min-width: 0; }
+.maps-panel h2 { margin-bottom: 8px; font-size: 20px; }
+.maps-panel p { margin-block: 12px; }
+.maps-panel .settings-grid { margin-block: 16px; gap: 16px; }
+.maps-panel .form-grid { margin-top: 16px; }
+.maps-panel .maps-actions { justify-content: flex-start; gap: 12px; }
+.maps-panel progress { display: block; width: 100%; height: 8px; margin-top: 8px; border: 0; border-radius: 99px; overflow: hidden; background: #ede8e1; }
+.maps-panel progress::-webkit-progress-bar { background: #ede8e1; }
+.maps-panel progress::-webkit-progress-value { background: #ff5e41; }
+.maps-panel progress::-moz-progress-bar { background: #ff5e41; }

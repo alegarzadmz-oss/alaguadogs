@@ -88,7 +88,11 @@ export function MapsMonitor({
     }
   }
   return (
-    <section className="panel" aria-labelledby="maps-heading" aria-busy={busy}>
+    <section
+      className="panel maps-panel"
+      aria-labelledby="maps-heading"
+      aria-busy={busy}
+    >
       <h2 id="maps-heading">Google Maps · consumo de las cuatro camionetas</h2>
       <p className="muted">
         {usage?.connected ? "Conexión configurada" : "Comprobando conexión"} ·{" "}
