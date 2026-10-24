@@ -2,12 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import {
-  ArrowUp,
-  Check,
-  LoaderCircle,
-  RotateCcw,
-} from "lucide-react";
+import { ArrowUp, Check, LoaderCircle, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DictationButton } from "@/components/dictation-button";
 import type { Command } from "@/lib/operations";
 import type { AkiraMessage, AkiraProposal } from "@/lib/akira";
 import type { SavedRoute } from "@/lib/saved-routes";
@@ -41,6 +37,7 @@ export function AkiraAssistant({
 }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [dictating, setDictating] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +52,7 @@ export function AkiraAssistant({
   }
   async function send(text: string) {
     const value = text.trim();
-    if (!value || lock.current || busy) return;
+    if (!value || lock.current || busy || dictating) return;
     lock.current = true;
     setSending(true);
     setError("");
@@ -109,7 +106,7 @@ export function AkiraAssistant({
     }
   }
   async function confirm(p: AkiraProposal & { revision: number }) {
-    if (lock.current || busy || saved.includes(p.id)) return;
+    if (lock.current || busy || dictating || saved.includes(p.id)) return;
     if (p.revision !== revision) {
       setError(
         "La agenda cambió desde esta propuesta. Pide a Akira una propuesta actualizada antes de confirmar.",
@@ -157,7 +154,13 @@ export function AkiraAssistant({
       >
         <Image src="/brand/akira-boxer.png" alt="" width={64} height={64} />
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setDictating(false);
+        }}
+      >
         <DialogContent className="akira-dialog">
           <DialogHeader className="akira-header">
             <Image
@@ -208,6 +211,7 @@ export function AkiraAssistant({
                     Revisar preparación de rutas
                   </button>
                   <button
+                    disabled={dictating}
                     onClick={() => {
                       setInput("Quiero agendar una cita para ");
                     }}
@@ -258,6 +262,7 @@ export function AkiraAssistant({
                       variant="outline"
                       onClick={() => {
                         setOpen(false);
+                        setDictating(false);
                         onRoadRoute(route);
                       }}
                     >
@@ -287,7 +292,11 @@ export function AkiraAssistant({
                     </details>
                     <Button
                       disabled={
-                        busy || sending || !!saving || saved.includes(p.id)
+                        busy ||
+                        sending ||
+                        !!saving ||
+                        dictating ||
+                        saved.includes(p.id)
                       }
                       onClick={() => void confirm(p)}
                     >
@@ -351,20 +360,35 @@ export function AkiraAssistant({
                   }
                 }}
                 disabled={sending || !!saving}
+                readOnly={dictating}
               />
+              {open && (
+                <DictationButton
+                  value={input}
+                  onChange={setInput}
+                  disabled={sending || !!saving || busy}
+                  onActiveChange={setDictating}
+                />
+              )}
               <button
                 className="akira-send"
                 type="submit"
                 aria-label="Enviar mensaje a Akira"
-                disabled={!input.trim() || sending || !!saving || busy}
+                disabled={
+                  !input.trim() || sending || !!saving || busy || dictating
+                }
               >
                 <ArrowUp size={21} />
               </button>
             </form>
+            <p className="akira-voice-note">
+              Dicta, revisa y envía. Usa el micrófono con la camioneta detenida.
+              El dictado utiliza el servicio de voz de tu navegador.
+            </p>
             <div className="akira-composer-note">
               <span>IA conversacional · Revisa las propuestas</span>
               <button
-                disabled={sending || !!saving}
+                disabled={sending || !!saving || dictating}
                 onClick={() => {
                   setMessages([]);
                   setSaved([]);

@@ -2614,3 +2614,13 @@ h1 {
   .saved-route-stops li > a { grid-column: 2; }
   .daily-route-dialog { padding: 14px; }
 }
+
+.akira-composer form { position: relative; }
+.akira-dictation { display: flex; flex: 0 0 44px; }
+.akira-mic { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #77c9bd; border-radius: 50%; background: #edf9f5; color: #1c1b34; cursor: pointer; }
+.akira-mic.is-listening { background: #ff5e41; border-color: #b43b25; }
+.akira-mic:disabled { opacity: .4; cursor: default; }
+.akira-mic:focus-visible { outline: 3px solid #bf402a; outline-offset: 3px; }
+.akira-dictation-feedback:not(:empty) { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); max-height: 130px; overflow-y: auto; padding: 12px 14px; border: 1px solid #77c9bd; border-radius: 12px; background: #f2faf8; box-shadow: 0 4px 18px #1c1b3412; color: #1c1b34; font-size: 13px; line-height: 1.5; }
+.akira-dictation-feedback strong, .akira-dictation-feedback span { display: block; }
+.akira-voice-note { margin-top: 8px; font-size: 11px; line-height: 1.5; color: #666174; }

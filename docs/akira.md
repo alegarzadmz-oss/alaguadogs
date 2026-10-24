@@ -36,6 +36,14 @@ Los precios y duraciones vienen del catálogo y deben revisarse para cada mascot
 
 La conversación vive en memoria de la pestaña y se puede reiniciar. Las peticiones de OpenAI usan `store: false`. Se envían mensajes, catálogo, camionetas y los datos concretos consultados por herramientas; no se envían teléfonos, notas privadas, pagos o toda la base de clientes. El límite es de ocho consultas por minuto y cien por día por cuenta de administración; se cuenta en `team_audit` sin almacenar el texto de la conversación.
 
+## Dictado para Administración
+
+El micrófono del campo de mensaje permite dictar en español de México usando `SpeechRecognition` o `webkitSpeechRecognition` del navegador. Se inicia únicamente al tocarlo; no solicita permisos al cargar el portal. El texto escrito se conserva y los resultados finales se agregan sin duplicarse. Las palabras provisionales se muestran por separado. El mensaje no se envía durante la escucha: Administración lo revisa, pulsa Enviar y confirma cualquier tarjeta de cita antes de guardar.
+
+Cada sesión escucha una intervención de hasta un minuto, sin reinicio automático. Terminar dictado espera el resultado final; cerrar el chat, desmontar el componente o pasar la página a segundo plano cancela la escucha. Se respeta el límite de 2,000 caracteres. Los errores de permiso, audio ocupado y conexión muestran una alternativa con el micrófono del teclado. No se agregan cuentas, permisos de agenda ni claves para esta función.
+
+El portal no guarda ni sube grabaciones: el navegador puede usar su propio servicio de voz, con sus permisos y condiciones. La disponibilidad depende del navegador y del dispositivo; si no existe la API, se explica cómo usar el dictado del teclado. La interfaz pide usarlo con la camioneta detenida. Referencia: [SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition), [stop](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/stop), [abort](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/abort).
+
 ## Configuración y comprobaciones
 
 `OPENAI_API_KEY` es privada y solo se utiliza en el servidor. Se guarda localmente en `.env.local`, excluido de Git y del despliegue de archivos, y en Vercel como secreto de Production. Nunca se usa un prefijo `NEXT_PUBLIC_`.
