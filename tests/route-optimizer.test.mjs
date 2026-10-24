@@ -145,6 +145,10 @@ test("ready routes retain review requirements, ignore archived visits and reject
   );
   const before = structuredClone(ctx.state);
   const preview = routePreview(ctx, "2030-01-07", "v1", "08:00");
+  const empty = routeReadiness(ctx, "2030-01-08", null);
+  assert.equal(empty.dailyTotals.scheduled, 0);
+  assert.equal(empty.dailyTotals.routeVisitsWithoutTimes, 0);
+  assert.match(empty.scheduleFact, /No hay citas ni visitas/);
   assert.equal(preview.proposal.kind, "route");
   assert.ok(preview.proposal.warnings.some((w) => /Regreso estimado/.test(w)));
   assert.deepEqual(ctx.state, before);
