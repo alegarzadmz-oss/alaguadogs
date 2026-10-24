@@ -184,6 +184,9 @@ export function summarizeVisits(visits: BoardVisit[]) {
     ),
   );
   return {
+    visits: visits.length,
+    appointments: visits.filter((v) => v.kind === "appointment").length,
+    routeVisits: visits.filter((v) => v.kind === "history").length,
     pets: visits.reduce((n, v) => n + serviceCounts(v).full, 0),
     additional: visits.reduce((n, v) => n + serviceCounts(v).additional, 0),
     unclassified: visits.reduce((n, v) => n + serviceCounts(v).unclassified, 0),
@@ -232,6 +235,27 @@ export function vanLoads(visits: BoardVisit[], vans: Van[]) {
     ...v,
     ...summarizeVisits(visits.filter((row) => row.vanId === v.id)),
   }));
+}
+
+export function weeklyDashboard(
+  visits: BoardVisit[],
+  vans: Van[],
+  date: string,
+  vanId = "all",
+) {
+  const days = weekDays(date);
+  const week = visits.filter((v) => days.includes(v.date));
+  const rows = week.filter((v) => vanId === "all" || v.vanId === vanId);
+  return {
+    days,
+    rows,
+    summary: summarizeVisits(rows),
+    byVan: vanLoads(week, vans),
+    byDay: days.map((day) => ({
+      day,
+      ...summarizeVisits(rows.filter((v) => v.date === day)),
+    })),
+  };
 }
 
 export function reviseHistoryVisit(

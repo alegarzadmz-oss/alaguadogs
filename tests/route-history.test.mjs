@@ -9,6 +9,7 @@ import {
   matchHistoryClient,
   routeCSV,
   validDay,
+  weeklyDashboard,
 } from "../lib/route-history.ts";
 
 function visit(overrides = {}) {
@@ -41,6 +42,96 @@ function visit(overrides = {}) {
 function blank() {
   return { ...demoState(), appointments: [], payments: [] };
 }
+
+test("weekly dashboard combines scheduled and route visits, filters vans and keeps partial income separate from prices", () => {
+  const state = blank();
+  const scheduled = {
+    ...demoState().appointments[0],
+    date: "2026-10-19",
+    price: 65000,
+    vanId: "v1",
+  };
+  state.appointments = [
+    scheduled,
+    { ...scheduled, id: "canceled", status: "Cancelado" },
+  ];
+  state.payments = [
+    {
+      id: "partial",
+      appointmentId: scheduled.id,
+      amount: 20000,
+      method: "Efectivo",
+      reference: "",
+      date: "2026-10-24T12:00:00Z",
+    },
+  ];
+  const routes = [
+    visit({ id: "received", received: true, vanId: "v2" }),
+    visit({ id: "missing", price: null, vanId: "v1" }),
+    visit({ id: "free", price: 0, vanId: "v1" }),
+    visit({ id: "next-week", date: "2026-10-26", received: true }),
+    visit({
+      id: "archived",
+      deletedAt: "2026-10-24T12:00:00Z",
+      received: true,
+    }),
+  ];
+  const rows = boardVisits(state, routes);
+  const week = weeklyDashboard(rows, state.vans, "2026-10-24");
+  assert.equal(week.summary.visits, 4);
+  assert.equal(week.summary.appointments, 1);
+  assert.equal(week.summary.routeVisits, 3);
+  assert.equal(week.summary.amount, 155000);
+  assert.equal(week.summary.received, 110000);
+  assert.equal(week.summary.toVerify, 45000);
+  assert.equal(week.summary.missingPrice, 1);
+  assert.equal(week.byDay.length, 7);
+  assert.equal(
+    week.byDay.reduce((n, d) => n + d.received, 0),
+    week.summary.received,
+  );
+  assert.equal(
+    week.byVan.reduce((n, v) => n + v.visits, 0),
+    week.summary.visits,
+  );
+  const van = weeklyDashboard(rows, state.vans, "2026-10-24", "v1");
+  assert.equal(van.summary.visits, 3);
+  assert.equal(van.summary.received, 20000);
+  assert.ok(van.rows.every((v) => v.vanId === "v1"));
+  assert.equal(
+    weeklyDashboard(rows, state.vans, "2026-11-02").summary.visits,
+    0,
+  );
+});
+
+test("capturing a missing price updates the same weekly visit without inventing a receipt", () => {
+  const state = blank(),
+    pending = visit({ price: null, received: null });
+  const next = reviseHistoryVisit(
+    pending,
+    {
+      price: 65050,
+      method: pending.method,
+      received: pending.received,
+      clientId: pending.clientId,
+      vanId: pending.vanId,
+    },
+    state,
+  );
+  const week = weeklyDashboard(
+    boardVisits(state, [next]),
+    state.vans,
+    pending.date,
+  );
+  assert.equal(next.id, pending.id);
+  assert.equal(next.received, false);
+  assert.equal(week.summary.visits, 1);
+  assert.equal(week.summary.amount, 65050);
+  assert.equal(week.summary.missingPrice, 0);
+  assert.equal(week.summary.received, 0);
+  assert.equal(week.summary.toVerify, 65050);
+  assert.equal(pending.price, null);
+});
 const changes = (v) => ({
   price: v.price,
   method: v.method,

@@ -2537,3 +2537,18 @@ h1 {
   background: #eff9f7;
   border: 1px solid #b4d8d3;
 }
+
+.rh-week-overview, .rh-week-prices { padding: 1.25rem; }
+.rh-week-van { cursor: pointer; }
+.rh-week-van:hover { background: #eff9f7; }
+.rh-week-van:focus-visible { outline: 3px solid var(--brand-navy); outline-offset: 3px; }
+.rh-week-income { font-size: 1.3rem; font-weight: 750; color: var(--brand-navy); }
+.rh-pending-price { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.rh-pending-price > div, .rh-history-price { display: grid; gap: .35rem; }
+.rh-pending-price span, .rh-pending-price small { color: var(--muted-foreground); }
+.rh-history-price { justify-items: end; flex-shrink: 0; }
+.rh-price-dialog { max-width: 34rem; }
+@media (max-width: 600px) {
+  .rh-pending-price { align-items: flex-start; flex-direction: column; }
+  .rh-client-history .history-item { align-items: flex-start; flex-wrap: wrap; }
+}

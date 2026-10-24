@@ -804,7 +804,7 @@ export default function Home() {
                         : "Tus servicios y domicilios asignados, en orden.",
                       routes: "Del primer domicilio al regreso a la base.",
                       weekly:
-                        "Mascotas, domicilios e importes por camioneta y día.",
+                        "Citas, visitas e ingresos de la semana por camioneta y día.",
                       transfers:
                         "Pagos recibidos y pendientes, con su confirmación.",
                       clients: "Conoce a cada familia y a cada mascota.",
@@ -884,7 +884,7 @@ export default function Home() {
                   <ChevronRight />
                 </Button>
                 <Button variant="outline" onClick={() => setDate(today())}>
-                  Hoy
+                  {view === "weekly" ? "Esta semana" : "Hoy"}
                 </Button>
               </div>
               <Choice
@@ -1815,6 +1815,7 @@ export default function Home() {
                   {admin && (
                     <ClientRouteHistory
                       visits={history.filter((v) => v.clientId === c.id)}
+                      onSave={saveHistory}
                     />
                   )}
                   <h2>Incidencias</h2>

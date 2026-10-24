@@ -31,12 +31,16 @@ import {
   routeCSV,
   summarizeVisits,
   vanLoads,
-  weekDays,
+  weeklyDashboard,
   type BoardVisit,
   type RouteVisit,
 } from "@/lib/route-history";
 import { RouteCapture, RouteVisitEditor } from "@/components/route-capture";
 import { ServiceCloseout } from "@/components/service-closeout";
+import {
+  RoutePriceDialog,
+  type SaveRoutePrice,
+} from "@/components/route-price-editor";
 
 type Props = {
   s: State;
@@ -87,7 +91,9 @@ function downloadRows(visits: BoardVisit[], state: State, date: string) {
 export function RouteDashboard(props: Props) {
   const { s, history, view, date, van, onView, onDate, onVan } = props;
   const [search, setSearch] = useState("");
-  const [metric, setMetric] = useState<"pets" | "stops" | "amount">("pets");
+  const [metric, setMetric] = useState<
+    "visits" | "pets" | "stops" | "amount" | "received"
+  >("visits");
   const [period, setPeriod] = useState("day");
   const [status, setStatus] = useState("all");
   const [linkStatus, setLinkStatus] = useState("all");
@@ -96,11 +102,13 @@ export function RouteDashboard(props: Props) {
   const [showArchive, setShowArchive] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState<RouteVisit | null>(null);
+  const [priceEditing, setPriceEditing] = useState<RouteVisit | null>(null);
   const all = useMemo(() => boardVisits(s, history), [s, history]);
-  const days = weekDays(date);
-  const inWeek = all.filter(
-    (v) => days.includes(v.date) && (van === "all" || v.vanId === van),
+  const weekly = useMemo(
+    () => weeklyDashboard(all, s.vans, date, van),
+    [all, s.vans, date, van],
   );
+  const { days, rows: inWeek } = weekly;
   const dayRows = all.filter(
     (v) => v.date === date && (van === "all" || v.vanId === van),
   );
@@ -148,10 +156,18 @@ export function RouteDashboard(props: Props) {
   const receivedTransfers = weeklyTransfers.filter((v) => v.received === true);
   const pendingTransfers = weeklyTransfers.filter((v) => v.received !== true);
   const metricText = {
+    visits: "Citas y visitas",
     pets: "Mascotas",
     stops: "Domicilios",
-    amount: "Importe MXN",
+    amount: "Importe registrado",
+    received: "Ingresos confirmados",
   };
+  const metricValue = (totals: ReturnType<typeof summarizeVisits>) =>
+    metric === "amount" || metric === "received"
+      ? money(totals[metric])
+      : totals[metric];
+  const missingPrices = inWeek.filter((v) => v.price === null);
+  const maxWeeklyIncome = Math.max(0, ...weekly.byVan.map((v) => v.received));
 
   const openRow = (v: BoardVisit) =>
     v.appointment ? props.onAppointment(v.appointment) : setEditing(v);
@@ -355,11 +371,15 @@ export function RouteDashboard(props: Props) {
           <Metric
             label={
               view === "weekly"
-                ? "Mascotas de la semana"
+                ? "Citas y visitas de la semana"
                 : "Mascotas programadas"
             }
-            value={String(summary.pets)}
-            note={`${summary.stops} visitas a domicilios`}
+            value={String(view === "weekly" ? summary.visits : summary.pets)}
+            note={
+              view === "weekly"
+                ? `${summary.appointments} citas con horario · ${summary.routeVisits} visitas de ruta · ${summary.pets} mascotas`
+                : `${summary.stops} visitas a domicilios`
+            }
           />
           <Metric
             label="Importe registrado"
@@ -367,7 +387,9 @@ export function RouteDashboard(props: Props) {
             note={`${summary.missingPrice} visitas sin precio capturado`}
           />
           <Metric
-            label="Cobros confirmados"
+            label={
+              view === "weekly" ? "Ingresos confirmados" : "Cobros confirmados"
+            }
             value={money(summary.received)}
             note="Según registros y confirmaciones manuales"
           />
@@ -379,23 +401,85 @@ export function RouteDashboard(props: Props) {
         </div>
       )}
       {view === "weekly" && (
-        <div className="metrics capture-week-metrics">
-          <Metric
-            label="Acumulado hasta hoy"
-            value={money(elapsed.amount)}
-            note={`${elapsed.pets} mascotas · ${elapsed.missingPrice} visitas sin precio`}
-          />
-          <Metric
-            label="Días futuros"
-            value={money(future.amount)}
-            note={`${future.pets} mascotas · ${future.missingPrice} visitas sin precio`}
-          />
-          <Metric
-            label="Servicios adicionales"
-            value={String(summary.additional)}
-            note="No incrementan el conteo de servicios completos"
-          />
-        </div>
+        <>
+          <section className="panel rh-week-overview">
+            <div className="section-row">
+              <div>
+                <h2>
+                  Las cuatro camionetas · semana del {shortDay(days[0])} al{" "}
+                  {shortDay(days[6])}
+                </h2>
+                <p className="muted">
+                  Selecciona una camioneta para filtrar los indicadores y el
+                  detalle diario.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                aria-pressed={van === "all"}
+                onClick={() => onVan("all")}
+              >
+                Todas las camionetas
+              </Button>
+            </div>
+            <div className="rh-load-grid">
+              {weekly.byVan.map((v, i) => (
+                <button
+                  type="button"
+                  className={`rh-load rh-van-${i} rh-week-van`}
+                  key={v.id}
+                  aria-pressed={van === v.id}
+                  aria-label={`Ver semana de ${v.name}`}
+                  onClick={() => onVan(v.id)}
+                >
+                  <b>{v.name}</b>
+                  <strong>
+                    {v.visits} <small>citas y visitas</small>
+                  </strong>
+                  <small>
+                    {v.appointments} con horario · {v.routeVisits} de ruta ·{" "}
+                    {v.pets} mascotas
+                  </small>
+                  <span className="rh-week-income">{money(v.received)}</span>
+                  <small>Ingresos confirmados</small>
+                  <div className="rh-bar" aria-hidden="true">
+                    <span
+                      style={{
+                        width: `${maxWeeklyIncome ? (v.received / maxWeeklyIncome) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <small>Registrado: {money(v.amount)}</small>
+                  <small>Por cobrar / verificar: {money(v.toVerify)}</small>
+                  <small>{v.missingPrice} precios pendientes</small>
+                </button>
+              ))}
+            </div>
+            <p className="footnote">
+              Los ingresos son cobros confirmados de las visitas de esta semana,
+              agrupados por fecha del servicio. El importe registrado incluye
+              precios aún no cobrados; las propinas se conservan por separado.
+              Las visitas sin precio no se consideran gratuitas.
+            </p>
+          </section>
+          <div className="metrics capture-week-metrics">
+            <Metric
+              label="Acumulado hasta hoy"
+              value={money(elapsed.amount)}
+              note={`${elapsed.pets} mascotas · ${elapsed.missingPrice} visitas sin precio`}
+            />
+            <Metric
+              label="Días futuros"
+              value={money(future.amount)}
+              note={`${future.pets} mascotas · ${future.missingPrice} visitas sin precio`}
+            />
+            <Metric
+              label="Servicios adicionales"
+              value={String(summary.additional)}
+              note="No incrementan el conteo de servicios completos"
+            />
+          </div>
+        </>
       )}
       {summary.unclassified > 0 && !props.reception && (
         <p className="footnote">
@@ -461,16 +545,18 @@ export function RouteDashboard(props: Props) {
               <p className="muted">Selecciona una celda para abrir su ruta.</p>
             </div>
             <div className="rh-tabs">
-              {(["pets", "stops", "amount"] as const).map((key) => (
-                <Button
-                  key={key}
-                  variant={metric === key ? "default" : "outline"}
-                  aria-pressed={metric === key}
-                  onClick={() => setMetric(key)}
-                >
-                  {metricText[key]}
-                </Button>
-              ))}
+              {(["visits", "pets", "stops", "amount", "received"] as const).map(
+                (key) => (
+                  <Button
+                    key={key}
+                    variant={metric === key ? "default" : "outline"}
+                    aria-pressed={metric === key}
+                    onClick={() => setMetric(key)}
+                  >
+                    {metricText[key]}
+                  </Button>
+                ),
+              )}
             </div>
           </div>
           <Table>
@@ -517,11 +603,7 @@ export function RouteDashboard(props: Props) {
                               onView("routes");
                             }}
                           >
-                            <strong>
-                              {metric === "amount"
-                                ? money(totals.amount)
-                                : totals[metric]}
-                            </strong>
+                            <strong>{metricValue(totals)}</strong>
                             <small>
                               {totals.pets} mascotas · {totals.stops} domicilios
                             </small>
@@ -536,14 +618,9 @@ export function RouteDashboard(props: Props) {
                     })}
                   <TableCell>
                     <b>
-                      {metric === "amount"
-                        ? money(
-                            summarizeVisits(inWeek.filter((v) => v.date === d))
-                              .amount,
-                          )
-                        : summarizeVisits(inWeek.filter((v) => v.date === d))[
-                            metric
-                          ]}
+                      {metricValue(
+                        summarizeVisits(inWeek.filter((v) => v.date === d)),
+                      )}
                     </b>
                   </TableCell>
                 </TableRow>
@@ -560,20 +637,12 @@ export function RouteDashboard(props: Props) {
                     );
                     return (
                       <TableCell key={v.id}>
-                        <b>
-                          {metric === "amount"
-                            ? money(totals.amount)
-                            : totals[metric]}
-                        </b>
+                        <b>{metricValue(totals)}</b>
                       </TableCell>
                     );
                   })}
                 <TableCell>
-                  <b>
-                    {metric === "amount"
-                      ? money(summary.amount)
-                      : summary[metric]}
-                  </b>
+                  <b>{metricValue(summary)}</b>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -583,6 +652,13 @@ export function RouteDashboard(props: Props) {
             importes se agrupan por fecha del servicio; la confirmación de cobro
             conserva su propia fecha.
           </p>
+          <Button
+            variant="outline"
+            disabled={!inWeek.length}
+            onClick={() => downloadRows(inWeek, s, days[0])}
+          >
+            <Download size={16} /> Exportar visitas de la semana
+          </Button>
         </section>
       ) : (
         <section className="panel">
@@ -726,6 +802,23 @@ export function RouteDashboard(props: Props) {
                     </TableCell>
                     <TableCell>
                       <b>{v.price === null ? "Sin precio" : money(v.price)}</b>
+                      {!props.reception && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label={`${v.price === null ? "Capturar" : "Editar"} precio de ${v.clientName} el ${v.date}`}
+                          onClick={() =>
+                            v.kind === "history"
+                              ? setPriceEditing(v)
+                              : props.onAppointment(v.appointment!)
+                          }
+                        >
+                          {v.price === null
+                            ? "Capturar precio"
+                            : "Editar precio"}
+                        </Button>
+                      )}
                       {v.pets.length > 1 && (
                         <small className="cell-sub">Total de la visita</small>
                       )}
@@ -841,6 +934,53 @@ export function RouteDashboard(props: Props) {
           </p>
         </section>
       )}
+      {view === "weekly" && (
+        <section className="panel rh-week-prices">
+          <h2>Precios pendientes de la semana ({missingPrices.length})</h2>
+          <p className="muted">
+            {van === "all"
+              ? "Todas las camionetas"
+              : s.vans.find((v) => v.id === van)?.name}
+            . Administración puede capturar el importe total de cada visita.
+          </p>
+          {missingPrices.length ? (
+            missingPrices
+              .toSorted(
+                (a, b) =>
+                  a.date.localeCompare(b.date) ||
+                  a.vanId.localeCompare(b.vanId) ||
+                  a.order - b.order,
+              )
+              .map((v) => (
+                <div key={v.kind + v.id} className="rh-pending-price">
+                  <div>
+                    <b>{v.clientName}</b>
+                    <span>
+                      {shortDay(v.date)} ·{" "}
+                      {s.vans.find((x) => x.id === v.vanId)?.name} ·{" "}
+                      {v.pets.map((p) => p.name).join(", ")}
+                    </span>
+                    <small>{v.address}</small>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label={`Capturar precio de ${v.clientName} el ${v.date}`}
+                    onClick={() =>
+                      v.kind === "history"
+                        ? setPriceEditing(v)
+                        : props.onAppointment(v.appointment!)
+                    }
+                  >
+                    Capturar precio
+                  </Button>
+                </div>
+              ))
+          ) : (
+            <p>No hay precios pendientes para esta selección.</p>
+          )}
+        </section>
+      )}
       {showArchive && !props.reception && (
         <section className="panel">
           <h2>Archivo recuperable</h2>
@@ -883,6 +1023,13 @@ export function RouteDashboard(props: Props) {
               </div>
             ))}
         </section>
+      )}
+      {!props.reception && (
+        <RoutePriceDialog
+          record={priceEditing}
+          onClose={() => setPriceEditing(null)}
+          onSave={props.onSave}
+        />
       )}
       <Dialog
         open={!!editing && !props.reception}
@@ -930,7 +1077,14 @@ function Metric({
     </div>
   );
 }
-export function ClientRouteHistory({ visits }: { visits: RouteVisit[] }) {
+export function ClientRouteHistory({
+  visits,
+  onSave,
+}: {
+  visits: RouteVisit[];
+  onSave?: SaveRoutePrice;
+}) {
+  const [priceEditing, setPriceEditing] = useState<RouteVisit | null>(null);
   visits = visits.filter((v) => !v.deletedAt);
   if (!visits.length) return null;
   return (
@@ -953,9 +1107,29 @@ export function ClientRouteHistory({ visits }: { visits: RouteVisit[] }) {
               </span>
               <small>{v.confirmationNote}</small>
             </div>
-            <b>{v.price === null ? "Sin precio" : money(v.price)}</b>
+            <div className="rh-history-price">
+              <b>{v.price === null ? "Sin precio" : money(v.price)}</b>
+              {onSave && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={`${v.price === null ? "Capturar" : "Editar"} precio de ${v.clientName} el ${v.date}`}
+                  onClick={() => setPriceEditing(v)}
+                >
+                  {v.price === null ? "Capturar precio" : "Editar precio"}
+                </Button>
+              )}
+            </div>
           </div>
         ))}
+      {onSave && (
+        <RoutePriceDialog
+          record={priceEditing}
+          onClose={() => setPriceEditing(null)}
+          onSave={onSave}
+        />
+      )}
     </section>
   );
 }

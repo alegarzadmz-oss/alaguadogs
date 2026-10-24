@@ -26,6 +26,10 @@ La comprobación bancaria y del comprobante de WhatsApp sigue siendo manual. El 
 
 ## Resumen y colaboración
 
+**Resumen semanal** muestra citas con horario y visitas de ruta de lunes a domingo. Cada tarjeta de camioneta compara cantidad de visitas, mascotas, importe registrado, ingresos confirmados, importe por cobrar o verificar y precios pendientes. Seleccionar una tarjeta o el filtro Camioneta actualiza los indicadores, la tabla diaria y la lista de precios pendientes. Los ingresos se agrupan por la fecha del servicio; no representan el flujo bancario por fecha de depósito. Las propinas no se suman a estos ingresos de servicios. Puede exportarse el detalle semanal en CSV.
+
+**Capturar precio / Editar precio** abre una captura directa del importe total de la visita, con centavos, desde rutas, cobros, transferencias (Administración), los pendientes semanales y el historial de la ficha del cliente. No registra pagos ni cambia mascotas, domicilios o fichas. Si cambia el importe se reinicia la confirmación del cobro. El servidor exige Administración para cambios de precio, conserva la captura original y registra quién realizó el cambio; una revisión desactualizada no puede sobrescribir otra modificación.
+
 Las vistas usan los mismos registros. Los cambios se reflejan al guardar y se actualizan periódicamente cada 30 segundos. Transferencias permite consultar día, semana o todo el historial, además de **Ver todos los pendientes**, para localizar cobros antiguos. El resumen semanal conserva lunes a domingo, navegación, filtro por VAN y alerta de diferencia de carga de tres servicios completos o más. Distingue fechas transcurridas, días futuros, valor registrado y cobros confirmados. La fecha transcurrida por sí sola no demuestra que un servicio se haya realizado.
 
 El CSV incluye nombres, domicilio, mascotas, razas, servicios, adicionales, observaciones, importes pendientes y evidencia de confirmación. Los valores susceptibles de interpretarse como fórmulas se protegen para abrirlos en hojas de cálculo.
