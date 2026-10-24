@@ -354,7 +354,7 @@ function RouteCollection({
       {data && !data.routes.length && (
         <p>
           {data.canManage
-            ? "No hay propuestas guardadas para esta selección. Pide a Akira que calcule las rutas del día o selecciona una camioneta para generar su propuesta."
+            ? "No hay propuestas guardadas para esta selección. Pide a Akira que calcule las rutas del día o selecciona una VAN para generar su propuesta."
             : "Administración todavía no ha publicado una ruta para tu cuenta en este día."}
         </p>
       )}

@@ -116,7 +116,7 @@ const blankState = (): State => ({
 });
 const views = [
   { id: "agenda", label: "Agenda del día", icon: CalendarDays },
-  { id: "routes", label: "Camionetas y rutas", icon: Truck },
+  { id: "routes", label: "VAN y rutas", icon: Truck },
   { id: "weekly", label: "Resumen semanal", icon: ChartNoAxesCombined },
   { id: "transfers", label: "Transferencias", icon: Wallet },
   { id: "clients", label: "Clientes y mascotas", icon: Users },
@@ -802,11 +802,11 @@ export default function Home() {
                   (
                     {
                       agenda: admin
-                        ? "Cuatro camionetas. Una agenda en orden."
+                        ? "Cuatro VAN. Una agenda en orden."
                         : "Tus servicios y domicilios asignados, en orden.",
                       routes: "Del primer domicilio al regreso a la base.",
                       weekly:
-                        "Citas, visitas e ingresos de la semana por camioneta y día.",
+                        "Citas, visitas e ingresos de la semana por VAN y día.",
                       transfers:
                         "Pagos recibidos y pendientes, con su confirmación.",
                       clients: "Conoce a cada familia y a cada mascota.",
@@ -890,11 +890,11 @@ export default function Home() {
                 </Button>
               </div>
               <Choice
-                label="Camioneta"
+                label="VAN"
                 value={van}
                 onChange={setVan}
                 options={[
-                  { value: "all", label: "Todas las camionetas" },
+                  { value: "all", label: "Todas las VAN" },
                   ...s.vans.map((v) => ({ value: v.id, label: v.name })),
                 ]}
               />
@@ -1557,7 +1557,7 @@ export default function Home() {
               {team && (
                 <TeamAccess team={team} vans={s.vans} onChange={refresh} />
               )}
-              <h2 className="section-heading">Las cuatro camionetas</h2>
+              <h2 className="section-heading">Las cuatro VAN</h2>
               <div className="settings-grid">
                 {s.vans.map((v) => (
                   <section className="panel settings-card" key={v.id}>
@@ -1705,7 +1705,7 @@ export default function Home() {
                     incident: "Registrar incidencia",
                     resolve: "Resolver incidencia",
                     outcome: "Tiempo y costos del servicio",
-                    van: "Editar camioneta",
+                    van: "Editar VAN",
                     service: "Valores del servicio",
                     base: "Base de salida y regreso",
                     route: "Revisar orden sugerido",
@@ -2388,7 +2388,7 @@ function Editor({
             )}
             {choice(
               "vanId",
-              "Camioneta",
+              "VAN",
               s.vans.map((v) => ({ value: v.id, label: v.name })),
               (id) => {
                 set("vanId", id);
@@ -2645,7 +2645,7 @@ function Editor({
               "Demora",
               "Atención al cliente",
               "Manejo de mascota",
-              "Camioneta / equipo",
+              "VAN / equipo",
               "Otro",
             ].map((v) => ({ value: v, label: v })),
           )}
@@ -2681,9 +2681,9 @@ function Editor({
       )}
       {kind === "van" && (
         <>
-          {input("name", "Nombre de la camioneta")}
+          {input("name", "Nombre de la VAN")}
           {input("groomer", "Bañador habitual")}
-          {textarea("notes", "Notas de camioneta o equipo")}
+          {textarea("notes", "Notas de VAN o equipo")}
           <p className="muted">
             El bañador habitual se usará en citas nuevas. Las asignaciones
             existentes se conservan.
@@ -2874,7 +2874,7 @@ function AppointmentDetail({
             {a.date} · {a.time}
           </p>
         </Field>
-        <Field label="Camioneta y bañador">
+        <Field label="VAN y bañador">
           <p>
             {s.vans.find((v) => v.id === a.vanId)?.name} · {a.groomer}
           </p>

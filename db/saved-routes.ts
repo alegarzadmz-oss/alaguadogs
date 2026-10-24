@@ -49,6 +49,9 @@ function project(
   // Never send old customer addresses to staff after an assignment/address edit.
   return {
     ...row.payload,
+    van:
+      state.vans.find((van) => van.id === row.payload.vanId)?.name ||
+      row.payload.van,
     stops:
       staff && stale
         ? []

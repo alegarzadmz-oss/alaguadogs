@@ -293,7 +293,7 @@ export function reviseHistoryVisit(
   )
     throw Error("Selecciona un cliente existente.");
   if (!state.vans.some((v) => v.id === value.vanId))
-    throw Error("Selecciona una camioneta existente.");
+    throw Error("Selecciona una VAN existente.");
   const changed = price !== current.price || value.method !== current.method;
   const received = changed
     ? value.method === "Pendiente"

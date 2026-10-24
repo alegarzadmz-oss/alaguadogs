@@ -441,11 +441,11 @@ export function RouteDashboard(props: Props) {
             <div className="section-row">
               <div>
                 <h2>
-                  Las cuatro camionetas · semana del {shortDay(days[0])} al{" "}
+                  Las cuatro VAN · semana del {shortDay(days[0])} al{" "}
                   {shortDay(days[6])}
                 </h2>
                 <p className="muted">
-                  Abre la ficha de una camioneta para consultar toda su semana.
+                  Abre la ficha de una VAN para consultar toda su semana.
                 </p>
               </div>
               <Button
@@ -453,7 +453,7 @@ export function RouteDashboard(props: Props) {
                 aria-pressed={van === "all"}
                 onClick={() => onVan("all")}
               >
-                Todas las camionetas
+                Todas las VAN
               </Button>
             </div>
             <div className="rh-load-grid">
@@ -531,7 +531,7 @@ export function RouteDashboard(props: Props) {
         <section className="panel rh-loads">
           <div className="section-row">
             <div>
-              <h2>Carga de las cuatro camionetas</h2>
+              <h2>Carga de las cuatro VAN</h2>
               <p className="muted">
                 {difference >= 3
                   ? `${difference} mascotas de diferencia entre la mayor y menor carga.`
@@ -687,7 +687,7 @@ export function RouteDashboard(props: Props) {
             </TableBody>
           </Table>
           <p className="footnote">
-            Los domicilios se cuentan por dirección, camioneta y día. Los
+            Los domicilios se cuentan por dirección, VAN y día. Los
             importes se agrupan por fecha del servicio; la confirmación de cobro
             conserva su propia fecha.
           </p>
@@ -978,7 +978,7 @@ export function RouteDashboard(props: Props) {
           <h2>Precios pendientes de la semana ({missingPrices.length})</h2>
           <p className="muted">
             {van === "all"
-              ? "Todas las camionetas"
+              ? "Todas las VAN"
               : s.vans.find((v) => v.id === van)?.name}
             . Administración puede capturar el importe total de cada visita.
           </p>

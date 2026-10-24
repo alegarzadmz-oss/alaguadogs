@@ -155,7 +155,7 @@ export async function changeMember(
     const vanId =
       role === "groomer" && typeof input.vanId === "string" ? input.vanId : "";
     if (vanId && !["v1", "v2", "v3", "v4"].includes(vanId))
-      throw Error("Selecciona una camioneta válida.");
+      throw Error("Selecciona una VAN válida.");
     if (existing) {
       if (email !== existing.email)
         throw Error(

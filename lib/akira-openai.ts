@@ -81,12 +81,12 @@ const common = {
 const tools = [
   tool(
     "road_route_preview",
-    "Consulta Google Maps para ordenar por calles las visitas de una camioneta y fecha, incluyendo regreso a base, y guarda la propuesta como borrador en su ficha. Consume una consulta mensual. No publica rutas ni cambia agenda o pagos.",
+    "Consulta Google Maps para ordenar por calles las visitas de una VAN y fecha, incluyendo regreso a base, y guarda la propuesta como borrador en su ficha. Consume una consulta mensual. No publica rutas ni cambia agenda o pagos.",
     { date: string, vanId: string },
   ),
   tool(
     "route_readiness",
-    "Revisa las cuatro camionetas o una elegida: base, ubicaciones faltantes, visitas sin horario y servicios que deben conservarse. No modifica datos.",
+    "Revisa las cuatro VAN o una elegida: base, ubicaciones faltantes, visitas sin horario y servicios que deben conservarse. No modifica datos.",
     { date: string, vanId: nullable },
   ),
   tool(
@@ -101,12 +101,12 @@ const tools = [
   ),
   tool(
     "suggest_slots",
-    "Sugiere horas y camionetas según cercanía por coordenadas o zona, carga y cruces. No reserva.",
+    "Sugiere horas y VAN según cercanía por coordenadas o zona, carga y cruces. No reserva.",
     { ...common, preferredTime: nullable, vanId: nullable },
   ),
   tool(
     "prepare_booking",
-    "Crea una tarjeta de cita para revisión. No guarda. Solo con cliente, mascota, servicio, fecha, hora y camioneta elegidos.",
+    "Crea una tarjeta de cita para revisión. No guarda. Solo con cliente, mascota, servicio, fecha, hora y VAN elegidos.",
     { ...common, time: string, vanId: string },
   ),
   tool(
@@ -167,7 +167,7 @@ export async function chatWithAkira(
         include: ["reasoning.encrypted_content"],
         instructions:
           akiraSystemPrompt(ctx, selectedDate) +
-          `\nCONSULTA VIAL: ${process.env.GOOGLE_MAPS_API_KEY && member ? "Google Maps está configurado. Si solicitan ordenar por calles o la ruta más eficiente, consulta road_route_preview para cada camioneta elegida, después del diagnóstico. Usa los domicilios completos de base y visitas; esa consulta no requiere coordenadas guardadas. Si faltan domicilios, pide completarlos. Si ya devolvió un recorrido en esta respuesta, no lo repitas. Su resultado solo propone el orden por calles: no aplica horarios ni crea tarjeta para guardar, no compara ahorro con un recorrido original y no incluye tráfico en vivo ni duraciones de servicios. Las visitas históricas sin horario pueden consultarse por calles, pero no confirman disponibilidad ni se convierten en citas. Presenta el orden, kilómetros y minutos estimados de manejo, incluyendo regreso, Aclara que el borrador se guarda si la herramienta devuelve draftSaved; la ruta solo se publica para el bañador cuando Administración la aprueba." : "Google Maps no está configurado; no llames road_route_preview."}`,
+          `\nCONSULTA VIAL: ${process.env.GOOGLE_MAPS_API_KEY && member ? "Google Maps está configurado. Si solicitan ordenar por calles o la ruta más eficiente, consulta road_route_preview para cada VAN elegida, después del diagnóstico. Usa los domicilios completos de base y visitas; esa consulta no requiere coordenadas guardadas. Si faltan domicilios, pide completarlos. Si ya devolvió un recorrido en esta respuesta, no lo repitas. Su resultado solo propone el orden por calles: no aplica horarios ni crea tarjeta para guardar, no compara ahorro con un recorrido original y no incluye tráfico en vivo ni duraciones de servicios. Las visitas históricas sin horario pueden consultarse por calles, pero no confirman disponibilidad ni se convierten en citas. Presenta el orden, kilómetros y minutos estimados de manejo, incluyendo regreso, Aclara que el borrador se guarda si la herramienta devuelve draftSaved; la ruta solo se publica para el bañador cuando Administración la aprueba." : "Google Maps no está configurado; no llames road_route_preview."}`,
         input: conversation,
         tools,
         parallel_tool_calls: false,

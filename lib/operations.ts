@@ -169,7 +169,7 @@ export function demoState(): State {
   }));
   const vans = [1, 2, 3, 4].map((n) => ({
     id: `v${n}`,
-    name: `Camioneta 0${n}`,
+    name: `VAN 0${n}`,
     groomer: `Bañador ${n}`,
     notes: "",
   }));
@@ -319,7 +319,7 @@ export function validateAppointment(
     !s.vans.some((v) => v.id === a.vanId) ||
     !s.services.some((v) => v.id === a.serviceId)
   )
-    fail("Selecciona camioneta y servicio.");
+    fail("Selecciona VAN y servicio.");
   const date = text(a.date, "la fecha", 10);
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
@@ -365,7 +365,7 @@ export function validateAppointment(
       end > minute(b.time) - b.travel
     )
       fail(
-        "El horario se cruza con otra cita o su traslado para esa camioneta o bañador.",
+        "El horario se cruza con otra cita o su traslado para esa VAN o bañador.",
       );
   }
   return r;
@@ -427,7 +427,7 @@ export function mutateState(
                   : b.groomer.toLowerCase() === a.groomer.toLowerCase())),
           )
         )
-          fail("La camioneta o bañador ya tiene un servicio en curso.");
+          fail("La VAN o bañador ya tiene un servicio en curso.");
         a.status = "En servicio";
         a.startedAt = now;
       } else if (c.status === "Completado" && a.status === "En servicio") {
@@ -494,7 +494,7 @@ export function mutateState(
         "Demora",
         "Atención al cliente",
         "Manejo de mascota",
-        "Camioneta / equipo",
+        "VAN / equipo",
         "Otro",
       ];
       if (!categories.includes(c.category)) fail("Categoría inválida.");
@@ -521,8 +521,8 @@ export function mutateState(
     }
     case "saveVan": {
       const v = s.vans.find((v) => v.id === c.van?.id);
-      if (!v) fail("Camioneta no encontrada.");
-      v.name = text(c.van.name, "la camioneta", 100);
+      if (!v) fail("VAN no encontrada.");
+      v.name = text(c.van.name, "la VAN", 100);
       v.groomer = text(c.van.groomer, "el bañador", 120);
       v.notes = text(c.van.notes, "las notas", 2000, false);
       action = `Equipo actualizado: ${v.name}`;
@@ -551,7 +551,7 @@ export function mutateState(
     case "applyRoute": {
       const route = routeProposal(
         s,
-        text(c.vanId, "la camioneta", 100),
+        text(c.vanId, "la VAN", 100),
         text(c.date, "la fecha", 10),
       );
       if (route.error) fail(route.error);
@@ -655,13 +655,13 @@ export function routeProposal(
   if (!all.length)
     return {
       ...empty,
-      error: "No hay servicios confirmados para esta camioneta.",
+      error: "No hay servicios confirmados para esta VAN.",
     };
   if (all.length > 60)
     return {
       ...empty,
       error:
-        "Divide esta jornada: el cálculo admite hasta 60 paradas por camioneta.",
+        "Divide esta jornada: el cálculo admite hasta 60 paradas por VAN.",
     };
   if (s.base.lat === null || s.base.lng === null)
     return {

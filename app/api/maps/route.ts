@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     }
     const parsed = input.safeParse(body);
     if (!parsed.success)
-      throw new MapsError("Revisa la fecha, camioneta o ficha seleccionada.");
+      throw new MapsError("Revisa la fecha, VAN o ficha seleccionada.");
     const { state } = await readSharedState();
     const value = parsed.data;
     let result: unknown;

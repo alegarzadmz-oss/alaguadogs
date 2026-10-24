@@ -120,7 +120,7 @@ export function VanWeekProfile(props: Props) {
           <ArrowLeft size={16} /> Volver al resumen semanal
         </Button>
         <label className="van-week-select">
-          Camioneta de la ficha
+          VAN de la ficha
           <select value={van.id} onChange={(e) => props.onVan(e.target.value)}>
             {s.vans.map((v) => (
               <option key={v.id} value={v.id}>
@@ -147,12 +147,12 @@ export function VanWeekProfile(props: Props) {
         </p>
         {van.notes && <p className="muted">{van.notes}</p>}
         <p className="muted">
-          Toda la operación de esta camioneta en la semana seleccionada. Puedes
+          Toda la operación de esta VAN en la semana seleccionada. Puedes
           cambiar de semana con los controles de fecha de arriba.
         </p>
       </header>
       {props.loading && (
-        <p role="status">Actualizando las visitas de la camioneta…</p>
+        <p role="status">Actualizando las visitas de la VAN…</p>
       )}
       {props.error && (
         <div role="alert" className="message error">
@@ -309,7 +309,7 @@ export function VanWeekProfile(props: Props) {
                 </TableBody>
               </Table>
             ) : (
-              <p>No hay citas ni visitas para esta camioneta en esta semana.</p>
+              <p>No hay citas ni visitas para esta VAN en esta semana.</p>
             )}
           </section>
         </TabsContent>

@@ -70,7 +70,7 @@ export function validateCapture(input: unknown, state: State): CaptureInput {
     );
   const v = parsed.data;
   if (!state.vans.some((van) => van.id === v.vanId))
-    throw Error("Selecciona una camioneta existente.");
+    throw Error("Selecciona una VAN existente.");
   if (v.clientId && !state.clients.some((c) => c.id === v.clientId))
     throw Error(
       "Selecciona una ficha existente o conserva la visita sin vincular.",
@@ -202,7 +202,7 @@ function header(line: string, date: string) {
     nextDate = `${named[3] || date.slice(0, 4)}-${String(months.indexOf(named[2]) + 1).padStart(2, "0")}-${named[1].padStart(2, "0")}`;
   const van =
     line.match(/\bVAN\s*[:#-]?\s*([ABCD])\b/i) ||
-    line.match(/\bCamioneta\s*0?([1-4])\b/i);
+    line.match(/\b(?:Camioneta|VAN)\s*0?([1-4])\b/i);
   return {
     date: nextDate,
     vanId: van

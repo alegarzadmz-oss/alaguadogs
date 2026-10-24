@@ -130,7 +130,7 @@ export function AkiraAssistant({
           role: "assistant",
           content:
             p.kind === "booking"
-              ? "Cita guardada en la agenda. Ya puedes verla con su camioneta y horario."
+              ? "Cita guardada en la agenda. Ya puedes verla con su VAN y horario."
               : "Orden aplicado. Los nuevos horarios ya aparecen en la agenda.",
         },
       ]);
@@ -198,13 +198,13 @@ export function AkiraAssistant({
                 <h3>Una agenda que va contigo.</h3>
                 <p>
                   Te ayudo a encontrar clientes, preparar citas y organizar las
-                  visitas de las cuatro camionetas.
+                  visitas de las cuatro VAN.
                 </p>
                 <div className="akira-starters">
                   <button
                     onClick={() =>
                       void send(
-                        `Revisa qué falta para optimizar las rutas de las cuatro camionetas del ${date}, considerando salida y regreso a base, ubicaciones y horarios.`,
+                        `Revisa qué falta para optimizar las rutas de las cuatro VAN del ${date}, considerando salida y regreso a base, ubicaciones y horarios.`,
                       )
                     }
                   >
@@ -256,7 +256,7 @@ export function AkiraAssistant({
                     </strong>
                     <p>
                       {route.stops.length} paradas · Propuesta guardada en la
-                      ficha de la camioneta. Sigue disponible al recargar.
+                      ficha de la VAN. Sigue disponible al recargar.
                     </p>
                     <Button
                       variant="outline"
@@ -382,7 +382,7 @@ export function AkiraAssistant({
               </button>
             </form>
             <p className="akira-voice-note">
-              Dicta, revisa y envía. Usa el micrófono con la camioneta detenida.
+              Dicta, revisa y envía. Usa el micrófono con la VAN detenida.
               El dictado utiliza el servicio de voz de tu navegador.
             </p>
             <div className="akira-composer-note">

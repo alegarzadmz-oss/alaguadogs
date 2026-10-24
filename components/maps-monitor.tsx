@@ -93,7 +93,7 @@ export function MapsMonitor({
       aria-labelledby="maps-heading"
       aria-busy={busy}
     >
-      <h2 id="maps-heading">Google Maps · consumo de las cuatro camionetas</h2>
+      <h2 id="maps-heading">Google Maps · consumo de las cuatro VAN</h2>
       <p className="muted">
         {usage?.connected ? "Conexión configurada" : "Comprobando conexión"} ·{" "}
         {usage?.month || "Mes actual"}. Límites compartidos; se restablecen el
@@ -146,7 +146,7 @@ export function MapsMonitor({
           />
         </div>
         <div>
-          <Label htmlFor="maps-van">Camioneta</Label>
+          <Label htmlFor="maps-van">VAN</Label>
           <select
             id="maps-van"
             className="maps-select"

@@ -217,13 +217,13 @@ export function TeamAccess({
             </div>
             {form.role === "groomer" && (
               <div className="field">
-                <Label htmlFor="member-van">Camioneta habitual</Label>
+                <Label htmlFor="member-van">VAN habitual</Label>
                 <select
                   id="member-van"
                   value={form.vanId}
                   onChange={(e) => setForm({ ...form, vanId: e.target.value })}
                 >
-                  <option value="">Sin camioneta habitual</option>
+                  <option value="">Sin VAN habitual</option>
                   {vans.map((v) => (
                     <option value={v.id} key={v.id}>
                       {v.name}
@@ -234,7 +234,7 @@ export function TeamAccess({
             )}
           </div>
           <p className="muted">
-            La camioneta habitual es una referencia. Asigna la cuenta del
+            La VAN habitual es una referencia. Asigna la cuenta del
             bañador en cada cita para que aparezca en su agenda.
           </p>
           <div className="button-row">
@@ -264,7 +264,7 @@ export function TeamAccess({
           <TableRow>
             <TableHead>Integrante</TableHead>
             <TableHead>Permisos</TableHead>
-            <TableHead>Camioneta habitual</TableHead>
+            <TableHead>VAN habitual</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Acciones</TableHead>
           </TableRow>

@@ -1,6 +1,6 @@
 # AL’AGUA DOGS · Operaciones
 
-Portal para la agenda de cuatro camionetas de estética de perros y gatos a domicilio. Incluye clientes y mascotas, asignación a bañadores, rutas estimadas, pagos y saldos, rentabilidad e incidencias.
+Portal para la agenda de cuatro VAN de estética de perros y gatos a domicilio. Incluye clientes y mascotas, asignación a bañadores, rutas estimadas, pagos y saldos, rentabilidad e incidencias.
 
 ## Plataforma
 
@@ -40,7 +40,7 @@ La publicación original permanece disponible durante la transferencia. Una vez 
 
 ## Historial de rutas y cobros
 
-Administración dispone de rutas diarias, carga por camioneta, resumen semanal y seguimiento de transferencias. La agenda y el historial importado se consultan juntos; las visitas importadas conservan sus datos originales, sin inventar horarios, servicios, costos ni una confirmación de cobro.
+Administración dispone de rutas diarias, carga por VAN, resumen semanal y seguimiento de transferencias. La agenda y el historial importado se consultan juntos; las visitas importadas conservan sus datos originales, sin inventar horarios, servicios, costos ni una confirmación de cobro.
 
 El historial vive en `route_visits`, separado del estado de agenda. La API exige una cuenta activa autorizada y protege los cambios con revisión de fila y auditoría. Administración puede capturar, pegar y revisar rutas; Recepción solo puede consultar transferencias y confirmar o desmarcar su recepción. Cambiar el importe o la forma de pago reinicia la confirmación. Efectivo y tarjeta sin confirmación en el origen quedan «Por verificar».
 
@@ -48,7 +48,7 @@ La [implementación de la guía operativa](docs/guia-operativa-implementacion.md
 
 El módulo [Fotos y cierre del servicio](docs/fotos-y-recibos.md) guarda fotografías privadas y propinas separadas. Al guardar el cierre con foto y correo registrado, envía automáticamente el resumen desde citas@alagua.dog. Administración controla los contactos, WhatsApp y la revisión de envíos; los bañadores solo capturan fotos y el cierre.
 
-Para una importación supervisada, guarda los CSV diarios como `routes-AAAA-MM-DD.csv` y las confirmaciones extraídas de la consulta como `transfers-week-AAAA-MM-DD.json` dentro de una carpeta `private/`. Verifica primero la correspondencia VAN A–D / Camioneta 01–04 y ejecuta la migración de esquema en el entorno elegido. Ejecuta el importador sin `--apply` para obtener la revisión previa:
+Para una importación supervisada, guarda los CSV diarios como `routes-AAAA-MM-DD.csv` y las confirmaciones extraídas de la consulta como `transfers-week-AAAA-MM-DD.json` dentro de una carpeta `private/`. Verifica primero la correspondencia VAN A–D / VAN 01–04 y ejecuta la migración de esquema en el entorno elegido. Ejecuta el importador sin `--apply` para obtener la revisión previa:
 
 ```sh
 node --env-file=.env.local --import tsx scripts/import-route-history.mts private/importacion-rutas

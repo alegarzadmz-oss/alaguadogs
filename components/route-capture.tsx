@@ -52,7 +52,7 @@ export function VisitFields({
           />
         </label>
         <label>
-          Camioneta
+          VAN
           <select
             value={value.vanId}
             onChange={(e) => edit("vanId", e.target.value)}
@@ -533,7 +533,7 @@ function CaptureForm({
           />
         </label>
         <label>
-          Camioneta si la lista no la incluye
+          VAN si la lista no la incluye
           <select
             value={defaults.vanId}
             onChange={(e) =>
@@ -709,7 +709,7 @@ function CaptureForm({
               onChange={(e) => setReviewed(e.target.checked)}
               disabled={busy}
             />{" "}
-            Revisé fechas, camionetas, mascotas y campos que quedan pendientes.
+            Revisé fechas, VAN, mascotas y campos que quedan pendientes.
           </label>
           <Button
             disabled={busy || !included.length || !reviewed || duplicates}

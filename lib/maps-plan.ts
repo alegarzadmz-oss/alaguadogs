@@ -20,7 +20,7 @@ export function mapsRoutePlan(
 ) {
   if (!validDay(date)) throw new MapsError("Selecciona una fecha válida.");
   const van = state.vans.find((v) => v.id === vanId);
-  if (!van) throw new MapsError("Selecciona una camioneta existente.");
+  if (!van) throw new MapsError("Selecciona una VAN existente.");
   if (!state.base.address.trim())
     throw new MapsError(
       "Configura primero el domicilio de la base en Equipo y servicios.",
@@ -39,7 +39,7 @@ export function mapsRoutePlan(
     );
   if (appointments.some((a) => a.status !== "Confirmado"))
     throw new MapsError(
-      "La camioneta tiene servicios iniciados o completados. Conserva su recorrido actual.",
+      "La VAN tiene servicios iniciados o completados. Conserva su recorrido actual.",
     );
   const stops = appointments.length
     ? appointments.map((a) => {
@@ -57,7 +57,7 @@ export function mapsRoutePlan(
       }));
   if (!stops.length)
     throw new MapsError(
-      "Esta camioneta no tiene visitas para la fecha seleccionada.",
+      "Esta VAN no tiene visitas para la fecha seleccionada.",
     );
   if (stops.length > 25)
     throw new MapsError(

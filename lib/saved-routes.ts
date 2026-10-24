@@ -53,7 +53,7 @@ export function routeSource(
     throw new SavedRouteError("Selecciona una fecha válida.");
   const van = state.vans.find((v) => v.id === vanId);
   if (!van || !state.base.address.trim())
-    throw new SavedRouteError("Revisa la camioneta y el domicilio de base.");
+    throw new SavedRouteError("Revisa la VAN y el domicilio de base.");
   const appointments = state.appointments
     .filter(
       (a) => a.date === date && a.vanId === vanId && a.status !== "Cancelado",
@@ -119,7 +119,7 @@ export function orderedSource(source: RouteSource, ids: string[]): RouteSource {
     ids.some((id) => !byId.has(id))
   )
     throw new SavedRouteError(
-      "La propuesta debe conservar exactamente todas las visitas de la camioneta.",
+      "La propuesta debe conservar exactamente todas las visitas de la VAN.",
     );
   return { ...source, stops: ids.map((id) => byId.get(id)!) };
 }

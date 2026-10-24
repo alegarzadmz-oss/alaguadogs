@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       );
     const van = params.get("vanId");
     if (van && van.length > 100)
-      throw new SavedRouteError("Selecciona una camioneta válida.");
+      throw new SavedRouteError("Selecciona una VAN válida.");
     return json(await savedRoutes(member, from, to, van));
   } catch (e) {
     return failure(e);

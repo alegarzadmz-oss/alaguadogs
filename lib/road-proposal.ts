@@ -27,6 +27,6 @@ export async function proposeRoadRoute(
     draftSaved: true,
     saved: false,
     saveMeaning:
-      "Propuesta guardada en la ficha de la camioneta. No se publicaron asignaciones ni se modificaron horarios o pagos.",
+      "Propuesta guardada en la ficha de la VAN. No se publicaron asignaciones ni se modificaron horarios o pagos.",
   };
 }
