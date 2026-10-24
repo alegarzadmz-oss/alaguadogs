@@ -68,3 +68,25 @@ CREATE TABLE IF NOT EXISTS service_receipt_shares (
   revoked_at text
 );
 CREATE INDEX IF NOT EXISTS service_receipt_shares_visit ON service_receipt_shares(owner,kind,visit_id);
+
+CREATE TABLE IF NOT EXISTS service_email_outbox (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('appointment','history')),
+  visit_id text NOT NULL,
+  signature text NOT NULL,
+  recipient text NOT NULL,
+  sender text NOT NULL,
+  snapshot jsonb NOT NULL,
+  share_token text,
+  status text NOT NULL CHECK (status IN ('pending','sending','sent','retry','failed','canceled')),
+  attempts integer NOT NULL DEFAULT 0,
+  created_at text NOT NULL,
+  first_attempt_at text,
+  next_attempt_at text NOT NULL,
+  sent_at text,
+  provider_id text,
+  error_code text,
+  UNIQUE(owner,kind,visit_id,signature)
+);
+CREATE INDEX IF NOT EXISTS service_email_pending ON service_email_outbox(owner,status,next_attempt_at);

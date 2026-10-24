@@ -46,7 +46,7 @@ El historial vive en `route_visits`, separado del estado de agenda. La API exige
 
 La [implementación de la guía operativa](docs/guia-operativa-implementacion.md) explica la vista previa de rutas, servicios completos y adicionales, archivo reversible, acceso de Recepción y los 12 casos de comprobación.
 
-El módulo [Fotos y cierre del servicio](docs/fotos-y-recibos.md) guarda fotografías privadas y propinas separadas, y prepara mensajes para el dueño por WhatsApp o correo con un enlace temporal al recibo.
+El módulo [Fotos y cierre del servicio](docs/fotos-y-recibos.md) guarda fotografías privadas y propinas separadas. Al guardar el cierre con foto y correo registrado, envía automáticamente el resumen desde citas@alagua.dog. Administración controla los contactos, WhatsApp y la revisión de envíos; los bañadores solo capturan fotos y el cierre.
 
 Para una importación supervisada, guarda los CSV diarios como `routes-AAAA-MM-DD.csv` y las confirmaciones extraídas de la consulta como `transfers-week-AAAA-MM-DD.json` dentro de una carpeta `private/`. Verifica primero la correspondencia VAN A–D / Camioneta 01–04 y ejecuta la migración de esquema en el entorno elegido. Ejecuta el importador sin `--apply` para obtener la revisión previa:
 

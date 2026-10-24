@@ -9,6 +9,7 @@ import {
   revokeReceiptShares,
   saveCloseout,
 } from "@/db/service-closeout";
+import { sendServiceEmail } from "@/db/service-email";
 export const dynamic = "force-dynamic";
 const json = (v: unknown, status = 200) =>
   Response.json(v, {
@@ -48,7 +49,12 @@ export async function POST(request: Request) {
     } catch {
       return json({ error: "Solicitud inválida." }, 400);
     }
-    if (body?.action === "save") return json(await saveCloseout(member, body));
+    if (body?.action === "save") {
+      const saved = await saveCloseout(member, body);
+      if (saved.emailJobId)
+        await sendServiceEmail(saved.emailJobId).catch(() => {});
+      return json(await readCloseout(member, { kind: body.kind, id: body.id }));
+    }
     if (
       !body ||
       Object.keys(body).some((k) => !["action", "kind", "id"].includes(k))

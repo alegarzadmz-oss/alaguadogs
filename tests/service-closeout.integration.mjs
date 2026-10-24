@@ -89,11 +89,7 @@ try {
     email: "",
     completed: true,
   };
-  const saved = await saveCloseout(groomer, raw, owner);
-  check(saved.closeout.revision === 1 && saved.receipt.tip === 5000);
-  check(saved.receipt.paid === 65000 && saved.receipt.balance === 0);
-  await reject(saveCloseout(groomer, raw, owner), /cambió/);
-  await reject(createReceiptShare(groomer, target, owner), /al menos una foto/);
+  await reject(saveCloseout(groomer, raw, owner), /foto/);
   const bytes = await normalizeServicePhoto(
       await readFile(
         new URL("../public/brand/akira-boxer.png", import.meta.url),
@@ -118,6 +114,11 @@ try {
     owner,
   );
   check(repeat.length === 1);
+  const saved = await saveCloseout(groomer, raw, owner);
+  check(saved.closeout.revision === 1 && saved.receipt.tip === 5000);
+  check(saved.receipt.paid === 65000 && saved.receipt.balance === 0);
+  await reject(saveCloseout(groomer, raw, owner), /cambió/);
+  await reject(createReceiptShare(groomer, target, owner), AccessError);
   const path = await servicePhotoPath(groomer, photoId, owner);
   files.push(path);
   const blob = await get(path, { access: "private" });
@@ -129,7 +130,7 @@ try {
       response.status === 404,
   );
   await reject(servicePhotoPath(reception, photoId, owner), AccessError);
-  const share = await createReceiptShare(groomer, target, owner);
+  const share = await createReceiptShare(admin, target, owner);
   check(share.token.length === 64);
   check(!!(await sharedReceipt(share.token))?.receipt);
   check((await sharedReceipt(share.token, photoId))?.pathname === path);
@@ -214,6 +215,7 @@ try {
 } finally {
   if (!keep) {
     for (const row of await paths()) await del(row.pathname);
+    await db`DELETE FROM service_email_outbox WHERE owner=${owner}`;
     await db`DELETE FROM service_receipt_shares WHERE owner=${owner}`;
     await db`DELETE FROM service_photos WHERE owner=${owner}`;
     await db`DELETE FROM service_closeouts WHERE owner=${owner}`;

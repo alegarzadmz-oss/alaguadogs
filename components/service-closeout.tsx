@@ -25,7 +25,9 @@ import {
   type ServiceCloseout as Closeout,
   type ServicePhoto,
   type ServiceReceipt,
+  type ServiceEmailStatus,
 } from "@/lib/service-closeout";
+import { emailStatusText } from "@/lib/service-email";
 
 type FormValues = {
   tip: string;
@@ -35,12 +37,16 @@ type FormValues = {
   email: string;
   completed: boolean;
 };
-const formValues = (c: Closeout | null, phone: string): FormValues => ({
+const formValues = (
+  c: Closeout | null,
+  phone: string,
+  email = "",
+): FormValues => ({
   tip: c?.tip == null ? "" : String(c.tip / 100),
   tipMethod: c?.tipMethod || "",
   ownerNote: c?.ownerNote || "",
   phone: c?.phone || phone,
-  email: c?.email || "",
+  email: c?.email || email,
   completed: !!c,
 });
 async function compressPhoto(file: File) {
@@ -96,7 +102,8 @@ export function ServiceCloseout({
           <DialogHeader>
             <DialogTitle>Foto y cierre del servicio</DialogTitle>
             <DialogDescription>
-              Guarda cómo quedó la mascota y prepara su resumen para el dueño.
+              Guarda la foto y el cierre; el sistema enviará el resumen por
+              correo al dueño.
             </DialogDescription>
           </DialogHeader>
           {open && <CloseoutForm target={target} />}
@@ -113,6 +120,8 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
   const [form, setForm] = useState<FormValues>(() => formValues(null, ""));
   const [savedForm, setSavedForm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [canManageContacts, setCanManageContacts] = useState(false);
+  const [delivery, setDelivery] = useState<ServiceEmailStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -138,7 +147,9 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
         );
         const data = await r.json();
         if (!r.ok) throw Error(data.error || "No se pudo abrir el cierre.");
-        const values = formValues(data.closeout, data.phone);
+        const values = formValues(data.closeout, data.phone, data.email);
+        setCanManageContacts(data.canManageContacts === true);
+        setDelivery(data.delivery);
         setCloseout(data.closeout);
         setPhotos(data.photos);
         setReceipt(data.receipt);
@@ -199,16 +210,20 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
       const data = await r.json();
       if (!r.ok) throw Error(data.error || "No se pudo guardar.");
       if (action === "save") {
-        const values = formValues(data.closeout, form.phone);
+        const values = formValues(
+          data.closeout,
+          data.phone || "",
+          data.email || "",
+        );
+        setDelivery(data.delivery);
+        setCanManageContacts(data.canManageContacts === true);
         setCloseout(data.closeout);
         setPhotos(data.photos);
         setReceipt(data.receipt);
         setForm(values);
         setSavedForm(JSON.stringify(values));
         setShare(null);
-        setNotice(
-          "Cierre guardado. La propina está separada del pago del servicio.",
-        );
+        setNotice("Cierre guardado. " + emailStatusText(data.delivery));
       } else if (action === "share") {
         setShare({
           url:
@@ -255,6 +270,10 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
       setPhotos(result.photos);
       setSelected(null);
       setShare(null);
+      if (closeout) {
+        setSavedForm("");
+        setDelivery({ state: "canceled" });
+      }
       setNotice(
         remove
           ? "Foto retirada. Los enlaces anteriores se revocaron."
@@ -455,28 +474,36 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
             placeholder="¡Gracias por confiar en nosotros!"
           />
         </label>
-        <div className="capture-two">
-          <label>
-            WhatsApp del dueño
-            <Input
-              type="tel"
-              value={form.phone}
-              maxLength={40}
-              onChange={(e) => edit("phone", e.target.value)}
-              placeholder="10 dígitos o código de país"
-            />
-          </label>
-          <label>
-            Correo del dueño
-            <Input
-              type="email"
-              value={form.email}
-              maxLength={254}
-              onChange={(e) => edit("email", e.target.value)}
-              placeholder="correo@ejemplo.com"
-            />
-          </label>
-        </div>
+        {canManageContacts && (
+          <div className="capture-two">
+            <label>
+              WhatsApp del dueño
+              <Input
+                type="tel"
+                value={form.phone}
+                maxLength={40}
+                onChange={(e) => edit("phone", e.target.value)}
+                placeholder="10 dígitos o código de país"
+              />
+            </label>
+            <label>
+              Correo del dueño
+              <Input
+                type="email"
+                value={form.email}
+                maxLength={254}
+                onChange={(e) => edit("email", e.target.value)}
+                placeholder="correo@ejemplo.com"
+              />
+            </label>
+          </div>
+        )}
+        {!canManageContacts && (
+          <p className="footnote">
+            Administración registra el correo del dueño. Al guardar este cierre,
+            el servidor enviará la foto y el resumen automáticamente.
+          </p>
+        )}
         <label className="rh-checkbox">
           <input
             type="checkbox"
@@ -487,10 +514,10 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
         </label>
         <Button
           type="button"
-          disabled={busy || !form.completed}
+          disabled={busy || !form.completed || !photos.length || !!selected}
           onClick={() => void action("save")}
         >
-          {busy ? "Guardando…" : "Guardar cierre"}
+          {busy ? "Guardando y enviando…" : "Guardar cierre y enviar correo"}
         </Button>
         {closeout && (
           <small className="muted">
@@ -499,83 +526,139 @@ function CloseoutForm({ target }: { target: ServiceTarget }) {
           </small>
         )}
       </section>
-      <section className="service-share-section">
-        <h3>Compartir con el dueño</h3>
-        <p>
-          El enlace incluye la foto y este recibo. Vence en 7 días y puedes
-          revocarlo.
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy || dirty || !closeout || !photos.length}
-          onClick={() => void action("share")}
-        >
-          <Share2 size={16} />
-          Preparar foto y recibo para enviar
-        </Button>
-        {(!closeout || dirty || !photos.length) && (
-          <p className="footnote">
-            Guarda el cierre y al menos una foto para preparar el envío.
-          </p>
+      <section className="service-email-status" aria-label="Correo automático">
+        <h3>Correo automático al dueño</h3>
+        <p role="status">{emailStatusText(delivery)}</p>
+        {canManageContacts && delivery?.recipient && (
+          <small>Destinatario: {delivery.recipient}</small>
         )}
-        {share && links && (
-          <div className="service-share-preview">
-            <label>
-              Mensaje que verá el dueño
-              <textarea rows={9} readOnly value={links.message} />
-            </label>
-            <div className="button-row">
-              <a
-                className="service-file-button"
-                href={links.whatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <MessageCircle size={16} />
-                Abrir WhatsApp
-              </a>
-              <a className="service-file-button" href={links.email}>
-                <Mail size={16} />
-                Preparar correo
-              </a>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(links.message);
-                    setNotice("Mensaje copiado.");
-                  } catch {
-                    setError("Selecciona y copia el mensaje de arriba.");
-                  }
-                }}
-              >
-                <Copy size={16} />
-                Copiar mensaje
-              </Button>
-            </div>
-            <small>
-              WhatsApp y correo se abren para que revises el destinatario y
-              completes el envío. El enlace contiene datos del servicio;
-              compártelo con su dueño.
-            </small>
-            <small>
-              Válido hasta {new Date(share.expiresAt).toLocaleString("es-MX")}.
-            </small>
-          </div>
-        )}
-        {closeout && (
+        {canManageContacts && closeout && (
           <Button
             type="button"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void action("revoke")}
+            variant="outline"
+            disabled={busy || dirty || delivery?.state === "sent"}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                const r = await fetch("/api/service-email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(target),
+                });
+                const data = await r.json();
+                if (!r.ok) throw Error(data.error || "No se pudo reintentar.");
+                const reload = await fetch(
+                  `/api/service-closeout?kind=${target.kind}&id=${encodeURIComponent(target.id)}`,
+                  { cache: "no-store" },
+                );
+                const current = await reload.json();
+                if (!reload.ok)
+                  throw Error(current.error || "Actualiza el cierre.");
+                setDelivery(current.delivery);
+                setCloseout(current.closeout);
+                setReceipt(current.receipt);
+                const values = formValues(
+                  current.closeout,
+                  current.phone || "",
+                  current.email || "",
+                );
+                setForm(values);
+                setSavedForm(JSON.stringify(values));
+                setNotice(emailStatusText(current.delivery));
+              } catch (e) {
+                setError(
+                  e instanceof Error ? e.message : "No se pudo reintentar.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
           >
-            Revocar enlaces compartidos
+            Revisar o reintentar correo
           </Button>
         )}
       </section>
+      {canManageContacts && (
+        <section className="service-share-section">
+          <h3>Compartir con el dueño</h3>
+          <p>
+            El enlace incluye la foto y este recibo. Vence en 7 días y puedes
+            revocarlo.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || dirty || !closeout || !photos.length}
+            onClick={() => void action("share")}
+          >
+            <Share2 size={16} />
+            Preparar foto y recibo para enviar
+          </Button>
+          {(!closeout || dirty || !photos.length) && (
+            <p className="footnote">
+              Guarda el cierre y al menos una foto para preparar el envío.
+            </p>
+          )}
+          {share && links && (
+            <div className="service-share-preview">
+              <label>
+                Mensaje que verá el dueño
+                <textarea rows={9} readOnly value={links.message} />
+              </label>
+              <div className="button-row">
+                <a
+                  className="service-file-button"
+                  href={links.whatsapp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircle size={16} />
+                  Abrir WhatsApp
+                </a>
+                <a className="service-file-button" href={links.email}>
+                  <Mail size={16} />
+                  Preparar correo
+                </a>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(links.message);
+                      setNotice("Mensaje copiado.");
+                    } catch {
+                      setError("Selecciona y copia el mensaje de arriba.");
+                    }
+                  }}
+                >
+                  <Copy size={16} />
+                  Copiar mensaje
+                </Button>
+              </div>
+              <small>
+                WhatsApp y correo se abren para que revises el destinatario y
+                completes el envío. El enlace contiene datos del servicio;
+                compártelo con su dueño.
+              </small>
+              <small>
+                Válido hasta {new Date(share.expiresAt).toLocaleString("es-MX")}
+                .
+              </small>
+            </div>
+          )}
+          {closeout && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void action("revoke")}
+            >
+              Revocar enlaces compartidos
+            </Button>
+          )}
+        </section>
+      )}
       {notice && (
         <p role="status" className="message success">
           {notice}

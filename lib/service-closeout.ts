@@ -42,6 +42,38 @@ export type ServicePhoto = {
   createdAt: string;
   createdBy: string;
 };
+export type ServiceEmailStatus = {
+  state:
+    | "awaiting_photo"
+    | "missing_email"
+    | "pending"
+    | "sending"
+    | "sent"
+    | "retry"
+    | "failed"
+    | "canceled"
+    | "not_saved";
+  sentAt?: string | null;
+  recipient?: string;
+  error?: string | null;
+};
+export function receiptIdentity(r: ServiceReceipt) {
+  return JSON.stringify([
+    r.clientName,
+    r.pets,
+    r.date,
+    r.service,
+    r.price,
+    r.paid,
+    r.balance,
+    r.methods,
+    r.tip,
+    r.tipMethod,
+    r.ownerNote,
+    r.completedAt,
+    r.photos.map((p) => [p.id, p.caption]),
+  ]);
+}
 export type ServiceReceipt = {
   clientName: string;
   pets: string[];

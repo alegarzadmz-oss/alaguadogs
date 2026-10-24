@@ -2,6 +2,7 @@ export type Client = {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   address: string;
   zone: string;
   notes: string;
@@ -273,6 +274,9 @@ export function validateClient(value: unknown): Client {
     id: text(c.id, "el identificador", 100),
     name: text(c.name, "el cliente", 120),
     phone: text(c.phone, "el teléfono", 40, false),
+    ...(c.email !== undefined
+      ? { email: text(c.email, "el correo", 254, false).trim().toLowerCase() }
+      : {}),
     address: text(c.address, "el domicilio", 400),
     zone: text(c.zone, "la zona", 100, false),
     notes: text(c.notes, "las notas", 2000, false),
@@ -294,6 +298,8 @@ export function validateClient(value: unknown): Client {
     new Set(result.pets.map((p) => p.id)).size !== result.pets.length
   )
     fail("Revisa las mascotas.");
+  if (result.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result.email))
+    fail("Revisa el correo del cliente.");
   if ((result.lat === null) !== (result.lng === null))
     fail("Indica latitud y longitud juntas.");
   return result;

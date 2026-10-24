@@ -14,7 +14,9 @@ import {
   type ServiceCloseout,
   type ServicePhoto,
   type ServiceReceipt,
+  receiptIdentity,
 } from "@/lib/service-closeout";
+import { queueServiceEmail, deliveryStatus } from "./service-email";
 
 export class CloseoutError extends Error {}
 type Context = {
@@ -26,24 +28,9 @@ type Context = {
 type Tx = postgres.TransactionSql;
 const hash = (s: string | Buffer) =>
   createHash("sha256").update(s).digest("hex");
-const fingerprint = (r: ServiceReceipt) =>
-  hash(
-    JSON.stringify([
-      r.clientName,
-      r.pets,
-      r.date,
-      r.service,
-      r.price,
-      r.paid,
-      r.balance,
-      r.methods,
-      r.tip,
-      r.tipMethod,
-      r.ownerNote,
-      r.completedAt,
-      r.photos.map((p) => [p.id, p.caption]),
-    ]),
-  );
+const fingerprint = (r: ServiceReceipt) => hash(receiptIdentity(r));
+const visibleCloseout = (c: ServiceCloseout | null, member: TeamMember) =>
+  c && member.role !== "admin" ? { ...c, phone: "", email: "" } : c;
 async function context(
   tx: Tx,
   target: ServiceTarget,
@@ -104,13 +91,14 @@ async function audit(tx: Tx, member: TeamMember, action: string) {
 }
 async function revoke(tx: Tx, target: ServiceTarget, owner: string) {
   await tx`UPDATE service_receipt_shares SET revoked_at=${new Date().toISOString()} WHERE owner=${owner} AND kind=${target.kind} AND visit_id=${target.id} AND revoked_at IS NULL`;
+  await tx`UPDATE service_email_outbox SET status='canceled',share_token=NULL,error_code='service_changed' WHERE owner=${owner} AND kind=${target.kind} AND visit_id=${target.id} AND status IN ('pending','retry','failed')`;
 }
 export async function readCloseout(
   member: TeamMember,
   target: ServiceTarget,
   owner = BUSINESS_KEY,
 ) {
-  return authorized(member, target, owner, async (_tx, ctx) => {
+  return authorized(member, target, owner, async (tx, ctx) => {
     const clientId =
       target.kind === "history"
         ? ctx.visit!.clientId
@@ -121,16 +109,26 @@ export async function readCloseout(
       tipMethod: null,
       ownerNote: "",
       phone: client?.phone || "",
-      email: "",
+      email: client?.email || "",
       completedAt: "",
       updatedAt: "",
       updatedBy: "",
       revision: 0,
     };
     return {
-      closeout: ctx.closeout,
+      closeout: visibleCloseout(ctx.closeout, member),
       photos: ctx.photos,
-      phone: client?.phone || "",
+      phone: member.role === "admin" ? client?.phone || "" : "",
+      email: member.role === "admin" ? client?.email || "" : "",
+      canManageContacts: member.role === "admin",
+      delivery: await deliveryStatus(
+        tx,
+        target,
+        owner,
+        ctx.closeout,
+        ctx.photos,
+        member.role === "admin",
+      ),
       receipt: serviceReceipt(ctx.state, target, draft, ctx.photos, ctx.visit),
     };
   });
@@ -148,6 +146,14 @@ export async function saveCloseout(
   const input = parsed.data,
     target = { kind: input.kind, id: input.id };
   return authorized(member, target, owner, async (tx, ctx) => {
+    if (!ctx.photos.length)
+      throw new CloseoutError(
+        "Guarda al menos una foto antes de cerrar el servicio.",
+      );
+    if (member.role !== "admin" && (input.phone || input.email))
+      throw new AccessError(
+        "Solo Administración puede elegir o cambiar el contacto del cliente.",
+      );
     if ((ctx.closeout?.revision || 0) !== input.revision)
       throw new CloseoutError(
         "Otra persona cambió el cierre. Actualiza antes de guardar.",
@@ -161,12 +167,23 @@ export async function saveCloseout(
         "Finaliza el servicio antes de guardar su cierre.",
       );
     const now = new Date().toISOString();
+    const clientId =
+      target.kind === "history"
+        ? ctx.visit!.clientId
+        : ctx.state.appointments.find((a) => a.id === target.id)!.clientId;
+    const client = ctx.state.clients.find((c) => c.id === clientId);
     const next: ServiceCloseout = {
       tip: input.tip,
       tipMethod: input.tip ? input.tipMethod : null,
       ownerNote: input.ownerNote,
-      phone: input.phone,
-      email: input.email,
+      phone:
+        member.role === "admin"
+          ? input.phone
+          : ctx.closeout?.phone || client?.phone || "",
+      email:
+        member.role === "admin"
+          ? input.email || client?.email || ""
+          : client?.email || ctx.closeout?.email || "",
       completedAt:
         ctx.closeout?.completedAt ||
         (target.kind === "appointment"
@@ -178,17 +195,93 @@ export async function saveCloseout(
       revision: input.revision + 1,
     };
     await tx`INSERT INTO service_closeouts(owner,kind,visit_id,payload,revision) VALUES (${owner},${target.kind},${target.id},${tx.json(next)},${next.revision}) ON CONFLICT(owner,kind,visit_id) DO UPDATE SET payload=EXCLUDED.payload,revision=EXCLUDED.revision`;
-    await revoke(tx, target, owner);
+    const receipt = serviceReceipt(
+      ctx.state,
+      target,
+      next,
+      ctx.photos,
+      ctx.visit,
+    );
+    if (
+      !ctx.closeout ||
+      ctx.closeout.email !== next.email ||
+      receiptIdentity(
+        serviceReceipt(ctx.state, target, ctx.closeout, ctx.photos, ctx.visit),
+      ) !== receiptIdentity(receipt)
+    )
+      await revoke(tx, target, owner);
+    const emailJobId = await queueServiceEmail(tx, {
+      owner,
+      target,
+      receipt,
+      email: next.email,
+      actor: member.name,
+    });
     await audit(
       tx,
       member,
       `Cierre con foto/recibo guardado: ${target.id}. Propina registrada por separado.`,
     );
     return {
-      closeout: next,
+      closeout: visibleCloseout(next, member),
       photos: ctx.photos,
-      receipt: serviceReceipt(ctx.state, target, next, ctx.photos, ctx.visit),
+      receipt,
+      emailJobId,
+      delivery: await deliveryStatus(
+        tx,
+        target,
+        owner,
+        next,
+        ctx.photos,
+        member.role === "admin",
+      ),
     };
+  });
+}
+export async function retryCloseoutEmail(
+  member: TeamMember,
+  target: ServiceTarget,
+  owner = BUSINESS_KEY,
+) {
+  if (member.role !== "admin")
+    throw new AccessError(
+      "Solo Administración puede revisar o reintentar los avisos.",
+    );
+  return authorized(member, target, owner, async (tx, ctx) => {
+    if (!ctx.closeout || !ctx.photos.length)
+      throw new CloseoutError("Falta guardar la foto y el cierre.");
+    const clientId =
+      target.kind === "history"
+        ? ctx.visit!.clientId
+        : ctx.state.appointments.find((a) => a.id === target.id)!.clientId;
+    const email =
+      ctx.state.clients.find((c) => c.id === clientId)?.email ||
+      ctx.closeout.email;
+    if (!email)
+      throw new CloseoutError(
+        "Registra el correo del dueño en su ficha antes de reintentar.",
+      );
+    const next = { ...ctx.closeout, email };
+    if (email !== ctx.closeout.email) {
+      next.revision++;
+      await tx`UPDATE service_closeouts SET payload=${tx.json(next)},revision=revision+1 WHERE owner=${owner} AND kind=${target.kind} AND visit_id=${target.id}`;
+      await revoke(tx, target, owner);
+    }
+    const emailJobId = await queueServiceEmail(tx, {
+      owner,
+      target,
+      receipt: serviceReceipt(ctx.state, target, next, ctx.photos, ctx.visit),
+      email,
+      actor: member.name,
+    });
+    if (emailJobId)
+      await tx`UPDATE service_email_outbox SET status='pending',next_attempt_at=${new Date().toISOString()} WHERE id=${emailJobId} AND status IN ('retry','failed')`;
+    await audit(
+      tx,
+      member,
+      `Revisión de correo automático solicitada: ${target.id}.`,
+    );
+    return emailJobId;
   });
 }
 export async function addServicePhoto(
@@ -304,6 +397,10 @@ export async function createReceiptShare(
   target: ServiceTarget,
   owner = BUSINESS_KEY,
 ) {
+  if (member.role !== "admin")
+    throw new AccessError(
+      "Solo Administración puede compartir enlaces o contactar al cliente.",
+    );
   return authorized(member, target, owner, async (tx, ctx) => {
     if (!ctx.closeout || !ctx.photos.length)
       throw new CloseoutError(
@@ -333,6 +430,10 @@ export async function revokeReceiptShares(
   target: ServiceTarget,
   owner = BUSINESS_KEY,
 ) {
+  if (member.role !== "admin")
+    throw new AccessError(
+      "Solo Administración puede revocar enlaces del cliente.",
+    );
   return authorized(member, target, owner, async (tx) => {
     await revoke(tx, target, owner);
     await audit(

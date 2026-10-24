@@ -89,6 +89,7 @@ import {
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
 import { ServiceCloseout } from "@/components/service-closeout";
+import { ServiceEmailMonitor } from "@/components/service-email-monitor";
 import { RouteCapture } from "@/components/route-capture";
 import { AkiraAssistant } from "@/components/akira-assistant";
 import {
@@ -1236,7 +1237,9 @@ export default function Home() {
                             </button>
                             <small className="cell-sub">
                               {c.pets.map((p) => p.name).join(", ")} ·{" "}
-                              {c.phone || "Teléfono por registrar"}
+                              {admin
+                                ? c.phone || "Teléfono por registrar"
+                                : "Contacto por Administración"}
                             </small>
                           </TableCell>
                           <TableCell>
@@ -1582,6 +1585,7 @@ export default function Home() {
                   </section>
                 ))}
               </div>
+              <ServiceEmailMonitor />
               <section className="panel settings-card">
                 <h2>Base de salida y regreso</h2>
                 <p>{s.base.address || "Por configurar"}</p>
@@ -1739,7 +1743,10 @@ export default function Home() {
                     <div>
                       <h2>{c.name}</h2>
                       <p className="muted">
-                        {c.phone || "Sin teléfono"} · {c.zone || "Sin zona"}
+                        {admin
+                          ? c.phone || "Sin teléfono"
+                          : "Contacto por Administración"}{" "}
+                        · {c.zone || "Sin zona"}
                       </p>
                     </div>
                     {admin && (
@@ -1752,6 +1759,11 @@ export default function Home() {
                     )}
                   </div>
                   <p>{c.address}</p>
+                  {admin && (
+                    <p className="muted">
+                      Correo para avisos: {c.email || "Pendiente de registrar"}
+                    </p>
+                  )}
                   {c.notes && <p className="muted">{c.notes}</p>}
                   <div className="pet-list">
                     {c.pets.map((p) => (
@@ -2120,6 +2132,7 @@ function Editor({
         id: uid(),
         name: "",
         phone: "",
+        email: "",
         address: "",
         zone: "",
         notes: "",
@@ -2425,6 +2438,7 @@ function Editor({
           <div className="form-grid">
             {input("name", "Nombre del cliente")}
             {input("phone", "Teléfono", "tel", false)}
+            {input("email", "Correo para avisos del servicio", "email", false)}
             {input("zone", "Zona o colonia", "text", false)}
           </div>
           {input("address", "Domicilio completo")}

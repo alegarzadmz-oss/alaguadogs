@@ -65,6 +65,7 @@ export function visibleState(state: State, member: TeamMember): State {
         .map((c) => ({
           ...c,
           phone: "",
+          email: "",
           notes: "",
           lat: null,
           lng: null,
@@ -91,7 +92,12 @@ export function visibleState(state: State, member: TeamMember): State {
     appointments: appointments.map((a) => ({ ...a, cost: 0, extraCost: 0 })),
     clients: state.clients
       .filter((c) => clientIds.has(c.id))
-      .map((c) => ({ ...c, pets: c.pets.filter((p) => petIds.has(p.id)) })),
+      .map((c) => ({
+        ...c,
+        phone: "",
+        email: "",
+        pets: c.pets.filter((p) => petIds.has(p.id)),
+      })),
     payments: state.payments.filter((p) => ids.has(p.appointmentId)),
     incidents: state.incidents.filter((i) => ids.has(i.appointmentId)),
     vans: state.vans
