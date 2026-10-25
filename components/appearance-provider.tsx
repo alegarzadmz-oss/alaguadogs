@@ -6,6 +6,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type ReactNode,
@@ -36,6 +37,9 @@ function AccountAppearance({
   const [feedback, setFeedback] = useState("");
   const locked = useRef(false);
   const lifecycle = useRef<AbortController | null>(null);
+  const applyPreference = useEffectEvent((appearance: Appearance) => {
+    setTheme(appearance);
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,7 +52,7 @@ function AccountAppearance({
         .then(async (response) => {
           const data = await response.json();
           if (!response.ok) throw Error(data.error);
-          if (!controller.signal.aborted) setTheme(data.appearance);
+          if (!controller.signal.aborted) applyPreference(data.appearance);
         })
         .catch(() => {
           if (!controller.signal.aborted)
@@ -61,7 +65,7 @@ function AccountAppearance({
         });
     }
     return () => controller.abort();
-  }, [enabled, setTheme]);
+  }, [enabled]);
 
   async function choose(appearance: Appearance) {
     if (!enabled || loading || locked.current) return;
