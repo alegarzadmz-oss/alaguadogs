@@ -576,6 +576,18 @@
   --sidebar-accent-foreground: var(--brand-navy);
   --sidebar-border: #3f3c53;
   --sidebar-ring: var(--brand-turquoise);
+  --surface-soft: #faf6f0;
+  --surface-mint: #ddf4ef;
+  --surface-coral: #fff0e9;
+  --surface-warning: #fff2dd;
+  --surface-danger: #fff0ef;
+  --surface-purple: #eeecf3;
+  --text-coral: #a73825;
+  --text-mint: #24645d;
+  --text-warning: #744d15;
+  --text-danger: #96352f;
+  --mint-border: #b4d8d3;
+  --danger-border: #f1ceca;
 }
 
 /* Semantic colors also cover menus, dialogs and fields rendered in portals. */
