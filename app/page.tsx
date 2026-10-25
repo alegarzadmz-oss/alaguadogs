@@ -90,6 +90,7 @@ import {
 import { TeamAccess } from "@/components/team-access";
 import { MapsMonitor } from "@/components/maps-monitor";
 import { BackupMonitor } from "@/components/backup-monitor";
+import { AppearanceSelector } from "@/components/appearance-provider";
 import { SavedRoutes, DailyRouteButton } from "@/components/saved-routes";
 import { ServiceCloseout } from "@/components/service-closeout";
 import { ServiceEmailMonitor } from "@/components/service-email-monitor";
@@ -744,6 +745,7 @@ export default function Home() {
             <span>Centro de operaciones</span>
           </div>
           <div className="inline">
+            <AppearanceSelector />
             <span className="preview-label">
               {s.demo
                 ? "Primera versión · Datos de ejemplo"

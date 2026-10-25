@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS team_audit (
   actor text NOT NULL,
   action text NOT NULL
 );
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS appearance text CHECK (appearance IN ('light', 'dark'));
 CREATE TABLE IF NOT EXISTS route_visits (
   owner text NOT NULL,
   id text NOT NULL,

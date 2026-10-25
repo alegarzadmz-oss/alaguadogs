@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { esES } from "@clerk/localizations";
+import { AppearanceProvider } from "@/components/appearance-provider";
 
 export const metadata: Metadata = {
   title: "AL’AGUA DOGS · Operaciones",
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#ff5e41",
-  colorScheme: "light",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({
@@ -40,8 +41,10 @@ export default function RootLayout({
       signUpUrl="/sign-up"
       afterSignOutUrl="/"
     >
-      <html lang="es">
-        <body className="antialiased">{children}</body>
+      <html lang="es" suppressHydrationWarning>
+        <body className="antialiased">
+          <AppearanceProvider>{children}</AppearanceProvider>
+        </body>
       </html>
     </ClerkProvider>
   );

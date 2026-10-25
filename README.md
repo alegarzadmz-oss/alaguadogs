@@ -11,6 +11,10 @@ Portal para la agenda de cuatro VAN de estética de perros y gatos a domicilio. 
 
 La aplicación requiere credenciales reales de Clerk y Neon. No acepta las cabeceras de identidad de Sites. No existe acceso de demostración que permita leer los datos privados sin iniciar sesión.
 
+## Apariencia personal
+
+El selector Claro / Oscuro de la barra superior está disponible para cada integrante activo, en computadora y celular. La elección se guarda en su propia cuenta (`team_members.appearance`) y se recupera al entrar desde otro dispositivo. El navegador conserva una copia por identidad para aplicar la apariencia al cargar. La API de preferencias solo permite consultar y cambiar la apariencia de la sesión actual; no modifica roles ni datos compartidos de la operación.
+
 ## Desarrollo
 
 Usa Node.js 24 y `npm ci`. Vincula primero el proyecto existente y descarga sus variables:
