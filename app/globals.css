@@ -2573,6 +2573,11 @@ h1 {
 .maps-result li { margin-block: .6rem; }
 .maps-result a { text-decoration: underline; }
 .maps-attribution { white-space: nowrap; font-style: normal; font-weight: 400; color: #5e5e5e; font-size: 14px; letter-spacing: normal; }
+.backup-monitor { padding: 24px; margin-block: 16px; min-width: 0; }
+.backup-monitor > .section-row { gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.backup-monitor h2 { display: flex; align-items: center; gap: 8px; font-size: 20px; }
+.backup-monitor p { margin-block: 12px; }
+@media (max-width: 640px) { .backup-monitor { padding: 16px; } }
 .maps-panel { padding: 24px; min-width: 0; }
 .maps-panel h2 { margin-bottom: 8px; font-size: 20px; }
 .maps-panel p { margin-block: 12px; }
