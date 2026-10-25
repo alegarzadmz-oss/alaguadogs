@@ -118,3 +118,26 @@ CREATE TABLE IF NOT EXISTS saved_routes (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS saved_routes_one_active ON saved_routes(owner,service_date,van_id) WHERE status='active';
 CREATE INDEX IF NOT EXISTS saved_routes_staff_day ON saved_routes(owner,assigned_to,service_date) WHERE status='active';
+
+CREATE TABLE IF NOT EXISTS backup_runs (
+  id text PRIMARY KEY,
+  owner text NOT NULL,
+  schedule_key text NOT NULL,
+  started_at text NOT NULL,
+  completed_at text,
+  status text NOT NULL CHECK (status IN ('running','succeeded','failed')),
+  attempts integer NOT NULL DEFAULT 1,
+  object_name text,
+  checksum text,
+  bytes integer,
+  photo_count integer,
+  verification jsonb,
+  error_code text,
+  UNIQUE(owner,schedule_key)
+);
+CREATE INDEX IF NOT EXISTS backup_runs_latest ON backup_runs(owner,started_at DESC);
+CREATE TABLE IF NOT EXISTS backup_locks (
+  owner text PRIMARY KEY,
+  run_id text NOT NULL,
+  expires_at timestamptz NOT NULL
+);

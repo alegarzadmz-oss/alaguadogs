@@ -89,6 +89,7 @@ import {
 } from "@/lib/operations";
 import { TeamAccess } from "@/components/team-access";
 import { MapsMonitor } from "@/components/maps-monitor";
+import { BackupMonitor } from "@/components/backup-monitor";
 import { SavedRoutes, DailyRouteButton } from "@/components/saved-routes";
 import { ServiceCloseout } from "@/components/service-closeout";
 import { ServiceEmailMonitor } from "@/components/service-email-monitor";
@@ -1601,6 +1602,7 @@ export default function Home() {
               </div>
               <ServiceEmailMonitor />
               <MapsMonitor vans={s.vans} date={date} />
+              <BackupMonitor />
               <section className="panel settings-card">
                 <h2>Base de salida y regreso</h2>
                 <p>{s.base.address || "Por configurar"}</p>

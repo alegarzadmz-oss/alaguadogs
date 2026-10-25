@@ -1,5 +1,14 @@
 {
   "framework": "nextjs",
   "regions": ["iad1"],
-  "crons": [{ "path": "/api/service-email-cron", "schedule": "*/5 * * * *" }]
+  "crons": [
+    {
+      "path": "/api/service-email-cron",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/backup-cron",
+      "schedule": "0 10 * * *"
+    }
+  ]
 }
