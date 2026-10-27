@@ -2711,6 +2711,7 @@ h1 {
 .app-install-dialog ol { margin: 10px 0; padding-left: 22px; line-height: 1.7; }
 .app-team-panel { padding: 24px; margin-bottom: 20px; }
 .app-team-panel p { margin: 12px 0 18px; line-height: 1.6; color: var(--muted-foreground); }
+.app-team-panel > button { max-width: 100%; min-height: 44px; height: auto; white-space: normal; }
 .groomer-workspace { width: 100%; min-width: 0; min-height: 100dvh; background: var(--background); }
 .groomer-preview-lock { border: 0; padding: 0; margin: 0; min-width: 0; }
 .groomer-header { background: var(--card); border-top: 4px solid var(--brand-coral); border-bottom: 1px solid var(--border); padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); }
@@ -2745,7 +2746,7 @@ h1 {
 .groomer-amounts b { display: block; margin-top: 5px; font-size: 17px; color: var(--foreground); }
 .groomer-contact-note { margin-top: 24px; }
 .groomer-preview-dialog { width: min(960px, calc(100vw - 24px)); max-width: 960px !important; max-height: calc(100dvh - 24px); overflow-y: auto; padding: 20px 0 0; }
-.groomer-preview-dialog > [data-slot="dialog-header"] { padding-inline: 24px; }
+.groomer-preview-dialog > [data-slot="dialog-header"] { padding-inline: 24px 40px; }
 .groomer-workspace .editor-form label { display: grid; gap: 8px; }
 .editor-form select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--input); border-radius: 8px; background: var(--card); color: var(--foreground); max-width: 100%; }
 @media (display-mode: standalone) {
