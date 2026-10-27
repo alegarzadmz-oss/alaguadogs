@@ -3,6 +3,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { esES } from "@clerk/localizations";
 import { AppearanceProvider } from "@/components/appearance-provider";
+import { AppRegistration } from "@/components/app-install";
 
 export const metadata: Metadata = {
   title: "AL’AGUA DOGS · Operaciones",
@@ -11,12 +12,20 @@ export const metadata: Metadata = {
   icons: {
     icon: "/brand/alagua-dogs-logo.jpg",
     shortcut: "/brand/alagua-dogs-logo.jpg",
+    apple: "/app-icons/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    title: "AL’AGUA DOGS",
+    statusBarStyle: "default",
+  },
+  applicationName: "AL’AGUA DOGS",
 };
 
 export const viewport: Viewport = {
   themeColor: "#ff5e41",
   colorScheme: "light dark",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -43,7 +52,10 @@ export default function RootLayout({
     >
       <html lang="es" suppressHydrationWarning>
         <body className="antialiased">
-          <AppearanceProvider>{children}</AppearanceProvider>
+          <AppearanceProvider>
+            <AppRegistration />
+            {children}
+          </AppearanceProvider>
         </body>
       </html>
     </ClerkProvider>

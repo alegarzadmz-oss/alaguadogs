@@ -15,6 +15,12 @@ La aplicación requiere credenciales reales de Clerk y Neon. No acepta las cabec
 
 El selector Claro / Oscuro de la barra superior está disponible para cada integrante activo, en computadora y celular. La elección se guarda en su propia cuenta (`team_members.appearance`) y se recupera al entrar desde otro dispositivo. El navegador conserva una copia por identidad para aplicar la apariencia al cargar. La API de preferencias solo permite consultar y cambiar la apariencia de la sesión actual; no modifica roles ni datos compartidos de la operación.
 
+## App instalable
+
+El portal tiene manifiesto, iconos y una app web instalable desde `alagua.dog`. El botón de instalación de la barra superior muestra las instrucciones para iPhone y Android. Administración conserva todas las secciones; el bañador entra directamente a **Mi día de trabajo**, con sus citas y las visitas de sus rutas publicadas para hoy, fichas sin contactos, navegación, pagos, incidencias, fotos, propinas y cierre. En Equipo y servicios hay una vista de ejemplo sin escrituras.
+
+La [guía de la app del equipo](docs/app-del-equipo.md) explica instalación, asignaciones, cobros, conexión y pruebas. No se crean cuentas de bañadores automáticamente ni se asigna una ruta solo por compartir VAN. El service worker almacena únicamente recursos públicos de instalación; no guarda datos de clientes, HTML autenticado, respuestas de API ni fotos privadas para consulta sin conexión.
+
 ## Desarrollo
 
 Usa Node.js 24 y `npm ci`. Vincula primero el proyecto existente y descarga sus variables:

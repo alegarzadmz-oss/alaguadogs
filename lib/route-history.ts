@@ -47,6 +47,11 @@ export type RouteVisit = {
   source: string;
   importedAt: string;
   revision: number;
+  workStatus?: "En servicio" | "Completado";
+  startedAt?: string;
+  finishedAt?: string;
+  actualMinutes?: number;
+  staffPayment?: { id: string; method: string; amount: number; at: string; by: string };
 };
 export type BoardVisit = RouteVisit & {
   kind: "history" | "appointment";

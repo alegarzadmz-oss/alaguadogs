@@ -3,6 +3,7 @@ import { database } from "./store";
 import { AccessError, BUSINESS_KEY, type TeamMember } from "@/lib/team";
 import type { State } from "@/lib/operations";
 import type { RouteVisit } from "@/lib/route-history";
+import { staffRoute } from "@/lib/workday";
 import {
   orderedSource,
   routeSource,
@@ -19,7 +20,7 @@ function requireAdmin(m: TeamMember) {
       "Solo Administración puede aprobar o guardar propuestas de ruta.",
     );
 }
-type RecordRow = {
+export type SavedRouteRow = {
   id: string;
   payload: RouteSource;
   source_hash: string;
@@ -31,8 +32,8 @@ type RecordRow = {
   assigned_name: string | null;
   revision: number;
 };
-function project(
-  row: RecordRow,
+export function projectSavedRoute(
+  row: SavedRouteRow,
   state: State,
   history: RouteVisit[],
   staff = false,
@@ -47,7 +48,7 @@ function project(
       ) !== row.source_hash;
   } catch {}
   // Never send old customer addresses to staff after an assignment/address edit.
-  return {
+  const result: SavedRoute = {
     ...row.payload,
     van:
       state.vans.find((van) => van.id === row.payload.vanId)?.name ||
@@ -72,6 +73,7 @@ function project(
     revision: row.revision,
     stale,
   };
+  return staff ? staffRoute(result) : result;
 }
 
 export async function storeRoadProposal(
@@ -111,7 +113,7 @@ export async function storeRoadProposal(
       )[0];
     if (created.length)
       await tx`INSERT INTO team_audit(id,at,actor,action) VALUES (${crypto.randomUUID()},${new Date().toISOString()},${member.id},${`Propuesta de ruta guardada: ${source.vanId}, ${source.date}, ${row.id}`})`;
-    return project(row as RecordRow, state, history);
+    return projectSavedRoute(row as SavedRouteRow, state, history);
   });
 }
 
@@ -156,7 +158,12 @@ export async function savedRoutes(
         : [];
     return {
       routes: rows.map((row) =>
-        project(row as RecordRow, state, history, member.role === "groomer"),
+        projectSavedRoute(
+          row as SavedRouteRow,
+          state,
+          history,
+          member.role === "groomer",
+        ),
       ),
       groomers,
       canManage: member.role === "admin",
@@ -197,7 +204,7 @@ export async function publishRoadRoute(
         "Otra persona cambió esta propuesta. Actualiza antes de publicar.",
         409,
       );
-    const view = project(row as RecordRow, state, history);
+    const view = projectSavedRoute(row as SavedRouteRow, state, history);
     if (view.stale)
       throw new SavedRouteError(
         "Las visitas o domicilios cambiaron. Calcula una propuesta actualizada.",
@@ -236,6 +243,6 @@ export async function publishRoadRoute(
     const [updated] =
       await tx`UPDATE saved_routes SET status='active',assigned_to=${groomer.id},assigned_name=${groomer.name},published_at=${now},revision=revision+1 WHERE owner=${owner} AND id=${input.id} RETURNING *`;
     await tx`INSERT INTO team_audit(id,at,actor,action) VALUES (${crypto.randomUUID()},${now},${member.id},${`Ruta del día publicada: ${view.vanId}, ${view.date}, bañador ${groomer.id}`})`;
-    return project(updated as RecordRow, state, history);
+    return projectSavedRoute(updated as SavedRouteRow, state, history);
   });
 }

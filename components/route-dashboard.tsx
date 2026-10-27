@@ -792,6 +792,7 @@ export function RouteDashboard(props: Props) {
                         {shortDay(v.date)} · {v.time || "Horario no capturado"}
                       </small>
                       <b>{v.clientName}</b>
+                      {!props.reception&&v.workStatus&&<small className="cell-sub">{v.workStatus}{v.actualMinutes!==undefined?` · ${v.actualMinutes} min reales`:""}</small>}
                       <small className="cell-sub">{v.address}</small>
                       {!props.reception &&
                         v.kind === "history" &&

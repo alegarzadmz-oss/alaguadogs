@@ -91,6 +91,10 @@ import { TeamAccess } from "@/components/team-access";
 import { MapsMonitor } from "@/components/maps-monitor";
 import { BackupMonitor } from "@/components/backup-monitor";
 import { AppearanceSelector } from "@/components/appearance-provider";
+import { AppInstall } from "@/components/app-install";
+import { GroomerDay, type WorkdayData } from "@/components/groomer-day";
+import { GroomerPreview } from "@/components/groomer-preview";
+import type { WorkdayCommand } from "@/lib/workday";
 import { SavedRoutes, DailyRouteButton } from "@/components/saved-routes";
 import { ServiceCloseout } from "@/components/service-closeout";
 import { ServiceEmailMonitor } from "@/components/service-email-monitor";
@@ -229,6 +233,8 @@ export default function Home() {
   const [cancel, setCancel] = useState<Appointment | null>(null);
   const [paymentTab, setPaymentTab] = useState("pending");
   const [team, setTeam] = useState<TeamContext | null>(null);
+  const [workday,setWorkday]=useState<WorkdayData>({routes:[],visits:[]});
+  const workdayLock=useRef(false);
   const [joinToken, setJoinToken] = useState("");
   const [history, setHistory] = useState<RouteVisit[]>([]);
   const [historyError, setHistoryError] = useState("");
@@ -236,6 +242,7 @@ export default function Home() {
   const historyRequest = useRef(0);
   const requestNumber = useRef(0);
   const admin = team?.viewer.role === "admin";
+  const groomer = team?.viewer.role === "groomer";
   const reception = team?.viewer.role === "reception";
   const view = reception
     ? "transfers"
@@ -246,8 +253,7 @@ export default function Home() {
   const allowedViews = views.filter((v) =>
     reception
       ? v.id === "transfers"
-      : admin ||
-        !["analytics", "settings", "weekly", "transfers"].includes(v.id),
+      : admin || v.id === "agenda",
   );
   function denyAccess() {
     ++historyRequest.current;
@@ -255,6 +261,7 @@ export default function Home() {
     setHistoryLoading(false);
     setReady(false);
     setTeam(null);
+    setWorkday({routes:[],visits:[]});
     setS(blankState());
     setModal(null);
   }
@@ -375,6 +382,7 @@ export default function Home() {
         state: State;
         revision: number;
         team: TeamContext;
+        workday?: WorkdayData;
         error: string;
         signIn?: boolean;
       };
@@ -387,6 +395,8 @@ export default function Home() {
       setS(d.state);
       setRevision(d.revision);
       setTeam(d.team);
+      setWorkday(d.workday||{routes:[],visits:[]});
+      if(d.team.viewer.role==="groomer")setDate(today());
       setReady(true);
       setSignIn(false);
       if (["admin", "reception"].includes(d.team.viewer.role))
@@ -468,6 +478,7 @@ export default function Home() {
         state: State;
         revision: number;
         team: TeamContext;
+        workday?: WorkdayData;
         error: string;
         signIn?: boolean;
       };
@@ -480,6 +491,7 @@ export default function Home() {
       setS(d.state);
       setRevision(d.revision);
       setTeam(d.team);
+      setWorkday(d.workday||{routes:[],visits:[]});
       setNotice("Cambios guardados.");
       return true;
     } catch (e) {
@@ -488,6 +500,17 @@ export default function Home() {
     } finally {
       setBusy(false);
     }
+  }
+  async function saveDay(input:WorkdayCommand) {
+    if(!ready||busy||workdayLock.current||!groomer)return false;
+    workdayLock.current=true;setBusy(true);setError("");setNotice("");++requestNumber.current;
+    try {
+      const response=await fetch("/api/workday",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(input)});
+      const result=await response.json();
+      if(!response.ok){if(response.status===401||response.status===403)await refresh();throw Error(result.error);}
+      await refresh();setNotice(input.action==="payment"&&input.method==="Transferencia"?"Transferencia reportada; Administración verificará su recepción.":"Registro del servicio guardado.");return true;
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");return false;}
+    finally{workdayLock.current=false;setBusy(false);}
   }
   useEffect(() => {
     const ctx = (document as any).modelContext;
@@ -675,6 +698,7 @@ export default function Home() {
             <Button variant="outline" disabled={busy} onClick={refresh}>
               Actualizar
             </Button>
+            <AppInstall />
             {!signIn && (
               <Link href="/sign-out" target="_top">
                 Cambiar de cuenta
@@ -686,6 +710,7 @@ export default function Home() {
     );
   return (
     <SidebarProvider>
+      {groomer&&team?<GroomerDay s={s} viewer={team.viewer} date={date} data={workday} busy={busy} error={error} notice={notice} onRefresh={refresh} onOpen={open} onSave={save} onWork={saveDay}/>:<>
       <Sidebar>
         <SidebarHeader>
           <div className="brand">
@@ -746,6 +771,7 @@ export default function Home() {
           </div>
           <div className="inline">
             <AppearanceSelector />
+            <AppInstall />
             <span className="preview-label">
               {s.demo
                 ? "Primera versión · Datos de ejemplo"
@@ -1522,9 +1548,10 @@ export default function Home() {
                     <h2>{i.category}</h2>
                     <button
                       className="cell-link"
+                      disabled={!cn(i.clientId)}
                       onClick={() => open("clientDetail", cn(i.clientId))}
                     >
-                      {cn(i.clientId)?.name}
+                      {cn(i.clientId)?.name||history.find(v=>v.id===i.routeVisitId)?.clientName||"Cliente por vincular"}
                     </button>
                     <p>{i.description}</p>
                     {i.resolution && (
@@ -1557,6 +1584,7 @@ export default function Home() {
           )}
           {admin && view === "settings" && (
             <>
+              <GroomerPreview />
               {team && (
                 <TeamAccess team={team} vans={s.vans} onChange={refresh} />
               )}
@@ -1668,6 +1696,7 @@ export default function Home() {
           )}
         </div>
       </main>
+      </>}
       {admin && ready && (
         <AkiraAssistant
           date={date}

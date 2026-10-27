@@ -2,6 +2,7 @@ import { getPortalUser } from "@/lib/auth";
 import { guardedWrite, prepare, readSharedState } from "@/db/store";
 import { guardValues, memberFor, memberGuard, teamContext } from "@/db/team";
 import { mutateState, type Command } from "@/lib/operations";
+import { readWorkday } from "@/db/workday";
 import {
   AccessError,
   authorizeCommand,
@@ -19,6 +20,15 @@ async function response(
   current: Awaited<ReturnType<typeof readSharedState>>,
   member: TeamMember,
 ) {
+  if (member.role === "groomer") {
+    const workday = await readWorkday(member);
+    return json({
+      state: workday.state,
+      revision: workday.revision,
+      team: await teamContext(member),
+      workday: { routes: workday.routes, visits: workday.visits },
+    });
+  }
   return json({
     state: visibleState(current.state, member),
     revision: current.revision,

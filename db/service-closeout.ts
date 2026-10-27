@@ -16,6 +16,7 @@ import {
   type ServiceReceipt,
   receiptIdentity,
 } from "@/lib/service-closeout";
+import { requireAssignedRouteVisit } from "./workday";
 import { queueServiceEmail, deliveryStatus } from "./service-email";
 
 export class CloseoutError extends Error {}
@@ -75,8 +76,18 @@ async function authorized<T>(
       );
     await tx`SELECT pg_advisory_xact_lock(hashtext(${owner + ":closeout:" + target.kind + ":" + target.id}))`;
     const ctx = await context(tx, target, owner);
+    const assignedHistory =
+      member.role === "groomer" && target.kind === "history";
+    if (assignedHistory)
+      await requireAssignedRouteVisit(tx, member, ctx.visit, owner);
     try {
-      requireServiceAccess(member, target, ctx.state, ctx.visit);
+      requireServiceAccess(
+        member,
+        target,
+        ctx.state,
+        ctx.visit,
+        assignedHistory,
+      );
     } catch (e) {
       if (e instanceof AccessError) throw e;
       throw new CloseoutError(
@@ -149,6 +160,14 @@ export async function saveCloseout(
     if (!ctx.photos.length)
       throw new CloseoutError(
         "Guarda al menos una foto antes de cerrar el servicio.",
+      );
+    if (
+      member.role === "groomer" &&
+      target.kind === "history" &&
+      ctx.visit?.workStatus !== "Completado"
+    )
+      throw new CloseoutError(
+        "Finaliza el servicio antes de guardar el cierre.",
       );
     if (member.role !== "admin" && (input.phone || input.email))
       throw new AccessError(

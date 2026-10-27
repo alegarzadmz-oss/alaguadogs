@@ -95,13 +95,14 @@ export function requireServiceAccess(
   target: ServiceTarget,
   state: State,
   visit?: RouteVisit,
+  assignedHistory = false,
 ) {
   if (member.status !== "active" || member.role === "reception")
     throw new AccessError(
       "Las fotos y cierres requieren administración o el bañador asignado.",
     );
   if (target.kind === "history") {
-    if (member.role !== "admin")
+    if (member.role !== "admin" && !assignedHistory)
       throw new AccessError("Esta ruta requiere administración.");
     if (!visit || visit.deletedAt) throw Error("La visita no está disponible.");
   } else {

@@ -59,6 +59,7 @@ export type Incident = {
   id: string;
   clientId: string;
   appointmentId: string;
+  routeVisitId?: string;
   category: string;
   description: string;
   resolution: string;
