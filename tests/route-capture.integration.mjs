@@ -8,6 +8,7 @@ import { demoState } from "../lib/operations.ts";
 import { parseRouteText, toCaptureInput } from "../lib/route-capture.ts";
 import { boardVisits, summarizeVisits } from "../lib/route-history.ts";
 import { AccessError } from "../lib/team.ts";
+import { routeTable } from "./fixtures/route-table.mjs";
 const db = database(),
   prefix = `guide-test-${crypto.randomUUID()}`,
   owner = `test:${prefix}`;
@@ -236,6 +237,34 @@ try {
   const [master] =
     await db`SELECT payload,revision FROM operation_state WHERE owner=${owner}`;
   check(master.payload === initialPayload && master.revision === 0);
+  const tableInput = {
+    operationId: crypto.randomUUID(),
+    sourceText: routeTable,
+    rows: parseRouteText(routeTable, "2030-01-09", "v1", state).map((v) => ({
+      visit: toCaptureInput(v),
+      duplicateConfirmed: false,
+    })),
+  };
+  const tableCreated = await importRoutes(admin, tableInput, owner);
+  check(tableCreated.length === 6);
+  check(tableCreated.reduce((n, v) => n + v.pets.length, 0) === 10);
+  check(
+    tableCreated.every(
+      (v) =>
+        v.price === null && v.method === "Pendiente" && v.received === null,
+    ),
+  );
+  check(
+    tableCreated[0].notes === "Avisar al llegar" &&
+      tableCreated.slice(1).every((v) => v.notes === ""),
+  );
+  const tableAgain = await importRoutes(admin, tableInput, owner);
+  check(tableAgain.every((v, i) => v.id === tableCreated[i].id));
+  check((await readHistory(admin, owner)).length === 8);
+  check(
+    (await db`SELECT payload FROM operation_state WHERE owner=${owner}`)[0]
+      .payload === initialPayload,
+  );
   console.log(
     JSON.stringify({
       integrationChecks: checks,
@@ -245,6 +274,7 @@ try {
       receptionRestrictions: true,
       archiveRestore: true,
       masterDataUnchanged: true,
+      sixTableVisitsAndTenPets: true,
     }),
   );
 } finally {

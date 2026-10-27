@@ -13,6 +13,7 @@ import {
 import {
   duplicateVisits,
   parseRouteText,
+  parseRouteTable,
   toCaptureInput,
   vanLabel,
   validateCapture,
@@ -26,7 +27,7 @@ import {
   type RouteService,
   type RouteVisit,
 } from "@/lib/route-history";
-import type { State } from "@/lib/operations";
+import { money, type State } from "@/lib/operations";
 
 export function VisitFields({
   value,
@@ -417,8 +418,8 @@ export function RouteCapture({
           <DialogHeader>
             <DialogTitle>Agregar visitas a la ruta</DialogTitle>
             <DialogDescription>
-              Pega la lista que ya utilizas o captura una visita. Revisa los
-              datos antes de guardar.
+              Pega una tabla con una fila por visita o captura una visita
+              manualmente. Revisa el total y los datos antes de guardar.
             </DialogDescription>
           </DialogHeader>
           {open && (
@@ -453,6 +454,7 @@ function CaptureForm({
   onDone: () => void;
 }) {
   const [text, setText] = useState("");
+  const [format, setFormat] = useState<"table" | "text">("table");
   const [defaults, setDefaults] = useState({
     date,
     vanId: van === "all" ? s.vans[0]?.id || "v1" : van,
@@ -462,6 +464,11 @@ function CaptureForm({
   const [busy, setBusy] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [operationId, setOperationId] = useState(() => crypto.randomUUID());
+  function clearPreview() {
+    setPreview([]);
+    setReviewed(false);
+    setError("");
+  }
   function setRows(rows: CaptureRow[]) {
     setPreview(
       rows.map((visit, index) => ({
@@ -529,16 +536,20 @@ function CaptureForm({
           <Input
             type="date"
             value={defaults.date}
-            onChange={(e) => setDefaults({ ...defaults, date: e.target.value })}
+            onChange={(e) => {
+              setDefaults({ ...defaults, date: e.target.value });
+              clearPreview();
+            }}
           />
         </label>
         <label>
           VAN si la lista no la incluye
           <select
             value={defaults.vanId}
-            onChange={(e) =>
-              setDefaults({ ...defaults, vanId: e.target.value })
-            }
+            onChange={(e) => {
+              setDefaults({ ...defaults, vanId: e.target.value });
+              clearPreview();
+            }}
           >
             {s.vans.map((v) => (
               <option key={v.id} value={v.id}>
@@ -549,14 +560,37 @@ function CaptureForm({
         </label>
       </div>
       <label>
-        Lista de rutas
+        Formato de captura
+        <select
+          value={format}
+          onChange={(e) => {
+            setFormat(e.target.value as "table" | "text");
+            clearPreview();
+          }}
+        >
+          <option value="table">Tabla (recomendada)</option>
+          <option value="text">Texto de WhatsApp</option>
+        </select>
+      </label>
+      <p className="muted">
+        {format === "table"
+          ? "Copia la tabla completa, incluidos los encabezados. Acepta tablas de ChatGPT o WhatsApp, Excel y CSV: cada fila es una visita y las observaciones permanecen en su columna."
+          : "Separa cada cliente con Cliente: o con su nombre seguido del domicilio. Revisa que el número de visitas coincida con tu lista; también puedes usar una tabla para evitar ambigüedades."}
+      </p>
+      <label>
+        {format === "table" ? "Tabla de rutas" : "Lista de rutas"}
         <textarea
           className="capture-source"
           value={text}
           maxLength={60000}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            clearPreview();
+          }}
           placeholder={
-            "Viernes 23 de octubre — VAN C\nCliente Ejemplo\nCalle Ejemplo 123, Colonia Centro\nLuna — bichón — baño\nMax — criollo — corte\n4 cortes de uñas adicionales\nObservación: avisar cuando vayan en camino"
+            format === "table"
+              ? "| # | Cliente | Dirección | Mascota(s) | Observaciones | Precio | Efectivo/transferencia |\n|---|---|---|---|---|---|---|\n| 1 | Ana Ejemplo | Calle Ejemplo 123 | Luna — bichón | Avisar al llegar |  |  |\n| 2 | Luis Ejemplo | Avenida Ejemplo 456 | Max — poodle |  | 450 | Efectivo |"
+              : "Viernes 23 de octubre — VAN C\nCliente: Cliente Ejemplo\nDirección: Calle Ejemplo 123, Colonia Centro\nLuna — bichón — baño\nMax — criollo — corte\n4 cortes de uñas adicionales\nObservación: avisar cuando vayan en camino"
           }
         />
       </label>
@@ -565,23 +599,24 @@ function CaptureForm({
           disabled={busy || !text.trim()}
           onClick={() => {
             try {
-              const rows = parseRouteText(
-                text,
-                defaults.date,
-                defaults.vanId,
-                s,
-              );
+              const rows = (
+                format === "table" ? parseRouteTable : parseRouteText
+              )(text, defaults.date, defaults.vanId, s);
               if (!rows.length)
                 throw Error(
                   "No se identificaron visitas; usa la captura manual o revisa la lista.",
                 );
               setRows(rows);
             } catch (e) {
+              setPreview([]);
+              setReviewed(false);
               setError(e instanceof Error ? e.message : "Revisa el texto.");
             }
           }}
         >
-          Interpretar y revisar lista
+          {format === "table"
+            ? "Leer tabla y revisar visitas"
+            : "Interpretar y revisar lista"}
         </Button>
         <Button
           variant="outline"
@@ -623,6 +658,58 @@ function CaptureForm({
               Las fichas de clientes no se crean ni se fusionan al importar. Una
               visita sin precio conserva el importe pendiente.
             </small>
+          </div>
+          <div
+            className="capture-table-wrap"
+            role="region"
+            aria-label="Resumen de visitas detectadas"
+            tabIndex={0}
+          >
+            <table className="capture-table">
+              <caption>
+                Una fila por visita · comprueba el total antes de guardar
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Dirección</th>
+                  <th scope="col">Mascota(s)</th>
+                  <th scope="col">Observaciones</th>
+                  <th scope="col">Precio</th>
+                  <th scope="col">Pago</th>
+                  <th scope="col">Importación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((row, i) => (
+                  <tr key={i}>
+                    <td>{i + 1}</td>
+                    <td>{row.visit.clientName || "Por confirmar"}</td>
+                    <td>{row.visit.address || "Por confirmar"}</td>
+                    <td>
+                      {row.visit.pets
+                        .map((p) =>
+                          [p.name, p.breed].filter(Boolean).join(" — "),
+                        )
+                        .join("; ") || "Por confirmar"}
+                    </td>
+                    <td className="capture-table-notes">
+                      {row.visit.notes || "—"}
+                    </td>
+                    <td>
+                      {row.visit.price === null
+                        ? "Sin precio"
+                        : money(row.visit.price)}
+                    </td>
+                    <td>{row.visit.method}</td>
+                    <td>
+                      {row.include ? "Incluir" : "Excluida · revisar duplicado"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           {preview.map((row, i) => {
             const matches = matchesFor(i);
@@ -709,7 +796,8 @@ function CaptureForm({
               onChange={(e) => setReviewed(e.target.checked)}
               disabled={busy}
             />{" "}
-            Revisé fechas, VAN, mascotas y campos que quedan pendientes.
+            Revisé el total de {included.length} visitas, fechas, VAN, mascotas
+            y campos que quedan pendientes.
           </label>
           <Button
             disabled={busy || !included.length || !reviewed || duplicates}

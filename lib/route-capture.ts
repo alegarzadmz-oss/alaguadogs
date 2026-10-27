@@ -300,7 +300,7 @@ function petLine(text: string, row: CaptureRow): boolean {
     }
     return false;
   }
-  const names = parts[0].split(/\s+y\s+|\s*;\s*/).filter(Boolean);
+  const names = parts[0].split(/\s+y\s+|\s*[,;]\s*/).filter(Boolean);
   const serviceAt = parts.findIndex(
     (p, i) => i > 0 && classifyService(p) !== "unknown",
   );
@@ -315,82 +315,174 @@ function parseDelimited(
   fallbackDate: string,
   fallbackVan: string,
 ): CaptureRow[] | null {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  const separator = lines[0]?.includes("\t")
-    ? "\t"
-    : lines[0]?.includes("|")
-      ? "|"
-      : ",";
-  function cells(line: string) {
-    const result: string[] = [];
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const clean = (line: string) => line.trim().replace(/^\*+|\*+$/g, "");
+  function cells(line: string, separator: string) {
+    let input = line;
+    if (separator === "|") {
+      input = input.trim();
+      if (input.startsWith("|"))
+        input = input.slice(1).replace(/(?<!\\)\|$/, "");
+    }
+    const values: string[] = [];
     let value = "",
       quoted = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (quoted && line[i + 1] === '"') {
+    for (let i = 0; i < input.length; i++) {
+      const c = input[i];
+      if (separator === "|" && c === "\\" && input[i + 1] === "|") {
+        value += "|";
+        i++;
+      } else if (separator !== "|" && c === '"' && (quoted || !value.trim())) {
+        if (quoted && input[i + 1] === '"') {
           value += '"';
           i++;
         } else quoted = !quoted;
       } else if (c === separator && !quoted) {
-        result.push(value.trim());
+        values.push(value.trim());
         value = "";
       } else value += c;
     }
-    result.push(value.trim());
-    return result;
+    values.push(value.trim());
+    return { values, quoted };
   }
-  const headings = cells(lines[0] || "").map(normalized);
-  if (
-    !headings.some((h) => /^(cliente|nombre)$/.test(h)) ||
-    !headings.some((h) => /^(direccion|domicilio)$/.test(h))
-  )
-    return null;
-  return lines
-    .slice(1)
-    .filter((s) => s.trim())
-    .map((line) => {
-      const values = cells(line),
-        get = (re: RegExp) =>
-          values[headings.findIndex((h) => re.test(h))] || "";
-      const h = header(
-        `${get(/^fecha$/)} ${get(/^(van|unidad|camioneta)$/)}`,
-        fallbackDate,
+  const isHeading = (values: string[]) =>
+    values.map(normalized).some((h) => /^(cliente|nombre)$/.test(h)) &&
+    values.map(normalized).some((h) => /^(direccion|domicilio)$/.test(h));
+  const first = lines.findIndex((line) =>
+    ["\t", "|", ","].some((s) => isHeading(cells(line, s).values)),
+  );
+  if (first < 0) return null;
+  const separator = ["\t", "|", ","].find((s) =>
+    isHeading(cells(lines[first], s).values),
+  )!;
+  let headings: string[] = [],
+    selectedDate = fallbackDate,
+    selectedVan = fallbackVan;
+  const result: CaptureRow[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    let line = lines[index];
+    if (!line.trim() || /^\s*```/.test(line)) continue;
+    const h = header(clean(line), selectedDate);
+    if (index < first || (!line.includes(separator) && h.found)) {
+      if (h.found) {
+        selectedDate = h.date;
+        selectedVan = h.vanId || selectedVan;
+      } else if (index >= first || line.includes(separator)) {
+        throw Error(
+          `La línea ${index + 1} no es una fila de la tabla. Revísala antes de importar.`,
+        );
+      }
+      continue;
+    }
+    let record = cells(line, separator);
+    const lineNumber = index + 1;
+    while (record.quoted && index + 1 < lines.length) {
+      line += "\n" + lines[++index];
+      record = cells(line, separator);
+    }
+    if (record.quoted)
+      throw Error(
+        `Hay comillas sin cerrar en la fila que empieza en la línea ${lineNumber}.`,
       );
-      const row = newRow(h.date, h.vanId || fallbackVan);
-      row.clientName = get(/^(cliente|nombre)$/);
-      row.address = get(/^(direccion|domicilio)$/);
-      const names = get(/^mascotas?$/),
-        breeds = get(/^razas?$/),
-        services = get(/^servicios?$/);
-      for (const name of names.split(/\s*[;]\s*/).filter(Boolean)) {
-        if (!petLine(name, row))
-          row.pets.push({
-            name,
-            breed: breeds,
-            services: services ? parseServices(services) : [],
-          });
+    const values = record.values;
+    if (isHeading(values)) {
+      headings = values.map(normalized);
+      continue;
+    }
+    if (values.every((v) => /^:?-{3,}:?$/.test(v))) continue;
+    if (values.every((v) => !v)) continue;
+    if (values.length !== headings.length)
+      throw Error(
+        `La línea ${lineNumber} tiene ${values.length} columnas; se esperaban ${headings.length}. Revisa separadores y celdas antes de importar.`,
+      );
+    const get = (re: RegExp) =>
+      values[headings.findIndex((h) => re.test(h))] || "";
+    const rowHeader = header(
+      `${get(/^fecha$/)} ${get(/^(van|unidad|camioneta)$/)}`,
+      selectedDate,
+    );
+    const row = newRow(rowHeader.date, rowHeader.vanId || selectedVan);
+    row.clientName = get(/^(cliente|nombre)$/);
+    row.address = get(/^(direccion|domicilio)$/);
+    if (!row.clientName && !row.address && !get(/^mascotas?$/)) {
+      throw Error(
+        `La línea ${lineNumber} no identifica una visita. Conserva las observaciones dentro de la fila de su cliente.`,
+      );
+    }
+    const names = get(/^mascotas?$/),
+      breeds = get(/^razas?$/),
+      services = get(/^servicios?$/);
+    for (const name of names.split(/\s*[;]\s*/).filter(Boolean)) {
+      if (!petLine(name, row))
+        for (const petName of name.split(/\s*,\s*|\s+y\s+/i).filter(Boolean))
+          row.pets.push({ name: petName, breed: breeds, services: [] });
+    }
+    if (services)
+      for (const pet of row.pets) {
+        if (!pet.breed) pet.breed = breeds;
+        if (!pet.services?.length) pet.services = parseServices(services);
       }
-      const price = get(/^(precio|preciomxn|importe|importemxn)$/);
-      row.price = price ? amount(price) : null;
-      row.method = method(get(/^(pago|formadepago|metododepago)$/));
-      row.notes = get(/^(notas|observaciones)$/);
-      if (price && row.price === null) {
-        row.warnings.push("No se interpretó el importe; quedó pendiente.");
-        addNote(row, "Importe del texto por revisar: " + price);
-      }
-      return row;
-    });
+    const price = get(/^(precio|preciomxn|importe|importemxn)$/);
+    row.price = price ? amount(price) : null;
+    row.notes = [get(/^(notas|observaciones)$/), row.notes]
+      .filter(Boolean)
+      .join("\n");
+    const knownHeading =
+      /^(?:numero|orden|fecha|van|unidad|camioneta|cliente|nombre|direccion|domicilio|mascotas?|razas?|servicios?|precio|preciomxn|importe|importemxn|pago|formadepago|metododepago|efectivotransferencia|efectivotransferenciatarjeta|notas|observaciones)$/;
+    for (const [column, key] of headings.entries()) {
+      if (key && !knownHeading.test(key) && values[column])
+        addNote(row, `${key}: ${values[column]}`);
+    }
+    const payment = get(
+      /^(pago|formadepago|metododepago|efectivotransferencia|efectivotransferenciatarjeta)$/,
+    );
+    const paymentKey = normalized(payment);
+    row.method =
+      /^(efectivo|cash|tarjeta|transferencia|transferenciabancaria)$/.test(
+        paymentKey,
+      )
+        ? method(payment)
+        : "Pendiente";
+    if (
+      payment &&
+      !/^(pendiente|porconfirmar|sinpago)$/.test(paymentKey) &&
+      row.method === "Pendiente"
+    ) {
+      row.warnings.push(
+        "La forma de pago requiere revisión; no se eligió automáticamente.",
+      );
+      addNote(row, "Pago del texto por revisar: " + payment);
+    }
+    if (price && row.price === null) {
+      row.warnings.push("No se interpretó el importe; quedó pendiente.");
+      addNote(row, "Importe del texto por revisar: " + price);
+    }
+    result.push(row);
+  }
+  return result;
+}
+export function parseRouteTable(
+  text: string,
+  date: string,
+  vanId: string,
+  state?: State,
+): CaptureRow[] {
+  return parseRouteText(text, date, vanId, state, "table");
 }
 export function parseRouteText(
   text: string,
   date: string,
   vanId: string,
   state?: State,
+  format: "auto" | "table" = "auto",
 ): CaptureRow[] {
   if (text.length > 60000)
     throw Error("Pega una ruta de hasta 60,000 caracteres.");
   let rows = parseDelimited(text.trim(), date, vanId);
+  if (!rows && format === "table")
+    throw Error(
+      "Pega una tabla con encabezados Cliente, Dirección y Mascota(s). También puedes elegir Texto de WhatsApp para una lista en párrafos.",
+    );
   if (!rows) {
     rows = [];
     let row: CaptureRow | null = null;
@@ -405,8 +497,15 @@ export function parseRouteText(
         row = null;
       }
     };
-    for (const raw of text.split(/\r?\n/)) {
-      const line = raw.replace(/^\s*[•*]\s*/, "").trim();
+    const lines = text.split(/\r?\n/).map((raw) =>
+      raw
+        .trim()
+        .replace(/^[•]\s*/, "")
+        .replace(/^\*+|\*+$/g, "")
+        .trim(),
+    );
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
       if (!line) {
         if (row?.pets.length) finish();
         continue;
@@ -428,6 +527,31 @@ export function parseRouteText(
         finish();
         row = newRow(selectedDate, selectedVan);
         row.clientName = line.replace(/^[^:]+:\s*/, "");
+        continue;
+      }
+      const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+      const nextLine =
+        lines.slice(index + 1).find((value) => value.trim()) || "";
+      const nextIsAddress =
+        /^(?:direcci[oó]n|domicilio)\s*:/i.test(nextLine) ||
+        (/[\p{L}]/u.test(nextLine) &&
+          /\d/.test(nextLine) &&
+          !/^\d+[.)]\s/.test(nextLine) &&
+          !/[—–]|\s-\s/.test(nextLine) &&
+          !header(nextLine, selectedDate).found &&
+          !/^(?:precio|importe|total|pago|mascotas?|observaci[oó]n|nota|\$|\+?\d[\d ().-]{8,}$|\d+\s+(?:baños?|banos?|cortes?))/i.test(
+            nextLine,
+          ));
+      const plainClient =
+        /^[\p{L}][\p{L} .’'&-]{0,159}$/u.test(line) &&
+        !/^(?:observaci[oó]n|notas?|referencias?|precio|importe|total|pago|direcci[oó]n|domicilio|mascotas?)\b/i.test(
+          line,
+        );
+      const numberedClient = numbered && !/[—–]|\s-\s/.test(numbered[1]);
+      if (numberedClient || (plainClient && nextIsAddress)) {
+        finish();
+        row = newRow(selectedDate, selectedVan);
+        row.clientName = numberedClient ? numbered[1] : line;
         continue;
       }
       if (
@@ -471,12 +595,6 @@ export function parseRouteText(
       }
       if (!row.clientName) {
         row.clientName = line.replace(/^\d+[.)]\s*/, "");
-        continue;
-      }
-      if (row.address && row.pets.length) {
-        finish();
-        row = newRow(selectedDate, selectedVan);
-        row.clientName = line;
         continue;
       }
       addNote(row, line);

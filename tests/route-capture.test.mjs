@@ -352,3 +352,155 @@ test("CSV includes services, extras, notes and receipt evidence without losing p
   assert.match(csv, /avisar cuando/);
   assert.match(csv, /Cliente Ejemplo/);
 });
+
+test("reported six-row Markdown route is exactly six visits and ten separate pets", async () => {
+  const { routeTable } = await import("./fixtures/route-table.mjs");
+  const rows = parseRouteText(routeTable, "2026-10-27", "v1", state());
+  assert.equal(rows.length, 6);
+  assert.deepEqual(
+    rows.map((r) => r.clientName),
+    [
+      "Ana Ejemplo",
+      "Beatriz Ejemplo",
+      "Cecilia Ejemplo",
+      "Diana Ejemplo",
+      "Elena Ejemplo",
+      "Fernanda Ejemplo",
+    ],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.pets.length),
+    [1, 3, 1, 1, 1, 3],
+  );
+  assert.deepEqual(
+    rows[1].pets.map((p) => p.name),
+    ["Abby", "Manice", "Petunia"],
+  );
+  assert.deepEqual(
+    rows[5].pets.map((p) => [p.name, p.breed]),
+    [
+      ["Chub", "shih tzu"],
+      ["Dak", "pitbull"],
+      ["Bailey", "shih tzu"],
+    ],
+  );
+  assert(
+    rows.every(
+      (r) =>
+        r.price === null && r.method === "Pendiente" && r.clientId === null,
+    ),
+  );
+  assert.equal(rows[0].notes, "Avisar al llegar");
+  assert(rows.slice(1).every((r) => r.notes === ""));
+});
+test("table headers after date and VAN labels, repeated headers and Markdown alignment are metadata", () => {
+  const rows = parseRouteText(
+    "Martes 27 de octubre — VAN B\n| Cliente | Dirección | Mascota(s) |\n|:---|---:|:---:|\n| Ana | Pino 1 | Luna |\n\nVAN D\n| Cliente | Dirección | Mascota(s) |\n|---|---|---|\n| Bea | Roble 2 | Toby |",
+    "2026-10-26",
+    "v1",
+  );
+  assert.equal(rows.length, 2);
+  assert.deepEqual(
+    rows.map((r) => r.vanId),
+    ["v2", "v4"],
+  );
+  assert(rows.every((r) => r.date === "2026-10-27"));
+});
+test("table payment aliases preserve explicit amounts and ambiguous payment stays pending", () => {
+  const rows = parseRouteText(
+    "| Cliente | Dirección | Mascota(s) | Precio | Efectivo/transferencia |\n|---|---|---|---|---|\n| Ana | Pino 1 | Luna | $1,200.50 | Efectivo |\n| Bea | Pino 2 | Toby | 450 | Transferencia |\n| Caro | Pino 3 | Lía | por confirmar | Efectivo/transferencia |",
+    "2026-10-27",
+    "v1",
+  );
+  assert.deepEqual(
+    rows.map((r) => r.method),
+    ["Efectivo", "Transferencia", "Pendiente"],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.price),
+    [120050, 45000, null],
+  );
+  assert.match(rows[2].notes, /Efectivo\/transferencia/);
+  assert.match(rows[2].notes, /por confirmar/);
+});
+test("tabular notes keep quoted line breaks and commas inside the same visit", () => {
+  const rows = parseRouteText(
+    'Cliente\tDirección\tMascotas\tObservaciones\tPrecio\nAna\tPino 1\tLuna\t"Avisar al llegar\nTocar dos veces"\t\nBea\tRoble 2\tToby\t\t450',
+    "2026-10-27",
+    "v1",
+  );
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].notes, "Avisar al llegar\nTocar dos veces");
+  assert.equal(rows[1].price, 45000);
+  const csv = parseRouteText(
+    'Cliente,Dirección,Mascotas,Observaciones\nAna,"Pino 1, Centro",Luna,"Avisó: ""tocar""\npuerta"',
+    "2026-10-27",
+    "v1",
+  );
+  assert.equal(csv.length, 1);
+  assert.equal(csv[0].notes, 'Avisó: "tocar"\npuerta');
+});
+test("malformed table rows and unclosed quotes stop the entire preview instead of becoming observations", () => {
+  for (const body of [
+    "| Cliente | Dirección | Mascota(s) |\n|---|---|---|\n| Ana | Pino 1 | Luna |\n| Bea | Roble 2 |",
+    "| Cliente | Dirección | Mascota(s) |\n|---|---|---|\n| Ana | Pino 1 | Luna |\nUn cliente fuera de la tabla",
+    'Cliente,Dirección,Mascotas,Observaciones\nAna,Pino 1,Luna,"sin cerrar',
+  ])
+    assert.throws(
+      () => parseRouteText(body, "2026-10-27", "v1"),
+      /línea|columnas|comillas/,
+    );
+});
+test("pipe cells preserve escaped separators and trailing blanks without outer pipes", () => {
+  const [a] = parseRouteText(
+    "| Cliente | Dirección | Mascotas | Observaciones |\n|---|---|---|---|\n| Ana | Pino 1 | Luna | Portón A \\| B |",
+    "2026-10-27",
+    "v1",
+  );
+  assert.equal(a.notes, "Portón A | B");
+  const [b] = parseRouteText(
+    "Cliente|Dirección|Mascotas|Precio|Pago\nAna|Pino 1|Luna||",
+    "2026-10-27",
+    "v1",
+  );
+  assert.equal(b.price, null);
+  assert.equal(b.method, "Pendiente");
+});
+test("plain WhatsApp stops do not depend on recognizing the previous pets or blank lines", () => {
+  const rows = parseRouteText(
+    "VAN A\nAna Ejemplo\nPino 125, Jardines\nCali poodle\nBeatriz Ejemplo\nRoble 12, Jardines\nAbby, Manice y Petunia\nCecilia Ejemplo\nAbeto 22, Jardines\nLía — cavalier",
+    "2026-10-27",
+    "v1",
+  );
+  assert.equal(rows.length, 3);
+  assert.equal(rows[1].clientName, "Beatriz Ejemplo");
+  assert(!rows[0].notes.includes("Beatriz"));
+  assert.match(rows[0].notes, /Cali poodle/);
+  assert(!rows[1].notes.includes("Cecilia"));
+  assert.equal(rows[2].pets[0].name, "Lía");
+});
+test("numbered stops remain separate even with missing pet metadata and free notes stay on their stop", () => {
+  const rows = parseRouteText(
+    "1. Ana\nPino 1\nLuna sin raza\n2. Bea\nRoble 2\nToby — poodle — baño\nNo tocar el timbre",
+    "2026-10-27",
+    "v1",
+  );
+  assert.equal(rows.length, 2);
+  assert.equal(rows[1].clientName, "Bea");
+  assert.equal(rows[1].notes, "No tocar el timbre");
+});
+test("dedicated table mode rejects paragraphs and extra columns remain in the correct notes", async () => {
+  const { parseRouteTable } = await import("../lib/route-capture.ts");
+  assert.throws(
+    () =>
+      parseRouteTable("Cliente: Ana\nDirección: Pino 1", "2026-10-27", "v1"),
+    /encabezados/,
+  );
+  const [a] = parseRouteTable(
+    "Cliente\tDirección\tMascotas\tServicios\tHorario\nAna\tPino 1\tLuna — bichón\tbaño\t10:00",
+    "2026-10-27",
+    "v1",
+  );
+  assert.match(a.notes, /10:00/);
+  assert.equal(a.pets[0].services[0].kind, "full");
+});

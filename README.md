@@ -52,6 +52,8 @@ La publicación original permanece disponible durante la transferencia. Una vez 
 
 Administración dispone de rutas diarias, carga por VAN, resumen semanal y seguimiento de transferencias. La agenda y el historial importado se consultan juntos; las visitas importadas conservan sus datos originales, sin inventar horarios, servicios, costos ni una confirmación de cobro.
 
+En **Pegar o capturar ruta** se recomienda pegar una tabla con encabezados Cliente, Dirección, Mascota(s), Observaciones, Precio y Efectivo/transferencia. Se aceptan tablas Markdown de WhatsApp/ChatGPT, Excel (tabulaciones) y CSV con celdas entre comillas. Cada fila corresponde a una visita; los separadores de Markdown no crean servicios. La vista previa muestra el total y todas las columnas antes de importar, rechaza filas incompletas y conserva sin precio o pago lo que esté pendiente. También se mantiene el formato Texto de WhatsApp. Editar el origen, fecha o VAN obliga a generar y revisar nuevamente la vista previa; los posibles duplicados continúan excluidos hasta revisión explícita.
+
 El historial vive en `route_visits`, separado del estado de agenda. La API exige una cuenta activa autorizada y protege los cambios con revisión de fila y auditoría. Administración puede capturar, pegar y revisar rutas; Recepción solo puede consultar transferencias y confirmar o desmarcar su recepción. Cambiar el importe o la forma de pago reinicia la confirmación. Efectivo y tarjeta sin confirmación en el origen quedan «Por verificar».
 
 La [implementación de la guía operativa](docs/guia-operativa-implementacion.md) explica la vista previa de rutas, servicios completos y adicionales, archivo reversible, acceso de Recepción y los 12 casos de comprobación.
