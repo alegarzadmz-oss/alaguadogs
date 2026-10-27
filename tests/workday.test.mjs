@@ -22,6 +22,8 @@ test('staff free text masks contact numbers while preserving dates, street numbe
  assert.equal(staffText('Río 135, 26/10/2026. Servicio 60 minutos.'),'Río 135, 26/10/2026. Servicio 60 minutos.');
  assert(!staffText('Tel. (81) 1234-5678; correo: a@example.test').includes('1234-5678'));
  assert(!staffText('Tel. (81) 1234-5678; correo: a@example.test').includes('a@example.test'));
+ assert(!staffText('8112345678 8198765432').includes('8112345678'));
+ assert(!staffText('8112345678 8198765432').includes('8198765432'));
 });
 test('work commands cannot change prices, assign clients or vans, confirm bank transfers or impersonate staff',()=>{
  const payment={action:'payment',visitId:'visit-a',revision:0,operationId:crypto.randomUUID(),method:'Transferencia'};

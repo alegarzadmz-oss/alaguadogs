@@ -17,6 +17,7 @@ import {
   receiptIdentity,
 } from "@/lib/service-closeout";
 import { requireAssignedRouteVisit } from "./workday";
+import { staffText } from "@/lib/workday";
 import { queueServiceEmail, deliveryStatus } from "./service-email";
 
 export class CloseoutError extends Error {}
@@ -31,7 +32,25 @@ const hash = (s: string | Buffer) =>
   createHash("sha256").update(s).digest("hex");
 const fingerprint = (r: ServiceReceipt) => hash(receiptIdentity(r));
 const visibleCloseout = (c: ServiceCloseout | null, member: TeamMember) =>
-  c && member.role !== "admin" ? { ...c, phone: "", email: "" } : c;
+  c && member.role !== "admin"
+    ? { ...c, phone: "", email: "", ownerNote: staffText(c.ownerNote) }
+    : c;
+const visiblePhotos = (photos: ServicePhoto[], member: TeamMember) =>
+  member.role === "admin"
+    ? photos
+    : photos.map((p) => ({ ...p, caption: staffText(p.caption) }));
+const visibleReceipt = (receipt: ServiceReceipt, member: TeamMember) =>
+  member.role === "admin"
+    ? receipt
+    : {
+        ...receipt,
+        clientName: staffText(receipt.clientName),
+        ownerNote: staffText(receipt.ownerNote),
+        photos: receipt.photos.map((p) => ({
+          ...p,
+          caption: staffText(p.caption),
+        })),
+      };
 async function context(
   tx: Tx,
   target: ServiceTarget,
@@ -128,7 +147,7 @@ export async function readCloseout(
     };
     return {
       closeout: visibleCloseout(ctx.closeout, member),
-      photos: ctx.photos,
+      photos: visiblePhotos(ctx.photos, member),
       phone: member.role === "admin" ? client?.phone || "" : "",
       email: member.role === "admin" ? client?.email || "" : "",
       canManageContacts: member.role === "admin",
@@ -140,7 +159,10 @@ export async function readCloseout(
         ctx.photos,
         member.role === "admin",
       ),
-      receipt: serviceReceipt(ctx.state, target, draft, ctx.photos, ctx.visit),
+      receipt: visibleReceipt(
+        serviceReceipt(ctx.state, target, draft, ctx.photos, ctx.visit),
+        member,
+      ),
     };
   });
 }
@@ -243,8 +265,8 @@ export async function saveCloseout(
     );
     return {
       closeout: visibleCloseout(next, member),
-      photos: ctx.photos,
-      receipt,
+      photos: visiblePhotos(ctx.photos, member),
+      receipt: visibleReceipt(receipt, member),
       emailJobId,
       delivery: await deliveryStatus(
         tx,
@@ -329,7 +351,7 @@ export async function addServicePhoto(
           throw new CloseoutError(
             "Esta foto ya se guardó con otros datos. Selecciónala de nuevo.",
           );
-        return ctx.photos;
+        return visiblePhotos(ctx.photos, member);
       }
       if (ctx.photos.length >= MAX_SERVICE_PHOTOS)
         throw new CloseoutError(
@@ -358,10 +380,13 @@ export async function addServicePhoto(
         member,
         `Foto de servicio guardada: ${target.id} (${photoId}).`,
       );
-      return [
-        ...ctx.photos,
-        { id: photoId, caption, createdAt: now, createdBy: member.name },
-      ];
+      return visiblePhotos(
+        [
+          ...ctx.photos,
+          { id: photoId, caption, createdAt: now, createdBy: member.name },
+        ],
+        member,
+      );
     });
   } catch (e) {
     if (uploaded)
@@ -393,7 +418,10 @@ export async function removeServicePhoto(
       member,
       `Foto retirada del cierre: ${target.id} (${photoId}).`,
     );
-    return ctx.photos.filter((p) => p.id !== photoId);
+    return visiblePhotos(
+      ctx.photos.filter((p) => p.id !== photoId),
+      member,
+    );
   });
 }
 export async function servicePhotoPath(

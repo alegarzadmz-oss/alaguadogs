@@ -47,12 +47,15 @@ export class WorkdayError extends Error {}
 export function staffText(value: string) {
   return value
     .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[contacto por Administración]")
-    .replace(/\+?\d[\d ().-]{7,}\d/g, (candidate) => {
-      const digits = candidate.replace(/\D/g, "");
-      return digits.length >= 10 && digits.length <= 15
-        ? "[contacto por Administración]"
-        : candidate;
-    });
+    .replace(
+      /(?<!\d)(?:\+?\d{1,3}[ ().-]+)?(?:\(?\d{2,3}\)?[ .-]+)?\d{3,4}[ .-]+\d{4}(?!\d)|(?<!\d)\+?\d{10,15}(?!\d)/g,
+      (candidate) => {
+        const digits = candidate.replace(/\D/g, "");
+        return digits.length >= 10 && digits.length <= 15
+          ? "[contacto por Administración]"
+          : candidate;
+      },
+    );
 }
 export function staffVisit(v: RouteVisit): RouteVisit {
   return {

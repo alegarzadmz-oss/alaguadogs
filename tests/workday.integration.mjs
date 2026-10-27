@@ -54,7 +54,8 @@ try{
  await assert.rejects(readCloseout(b,target,owner),AccessError);
  const closed=await saveCloseout(a,{action:'save',...target,revision:0,tip:5000,tipMethod:'Efectivo',ownerNote:'Terminó bien',phone:'',email:'',completed:true},owner);
  assert.equal(closed.closeout.tip,5000);assert.equal(closed.closeout.phone,'');
- const visible=await readCloseout(a,target,owner);assert.equal(visible.phone,'');assert.equal(visible.email,'');assert.equal(visible.receipt.tip,5000);
+ await db`UPDATE service_closeouts SET payload=jsonb_set(payload,'{ownerNote}',to_jsonb('Contacto 8112345678'::text)) WHERE owner=${owner} AND kind='history' AND visit_id=${target.id}`;
+ const visible=await readCloseout(a,target,owner);assert(!JSON.stringify(visible).includes('8112345678'));assert.equal(visible.phone,'');assert.equal(visible.email,'');assert.equal(visible.receipt.tip,5000);
  await assert.rejects(saveCloseout(a,{action:'save',...target,revision:1,tip:5000,tipMethod:'Efectivo',ownerNote:'',phone:'8112345678',email:'',completed:true},owner),AccessError);
  await db`UPDATE saved_routes SET assigned_to=${b.id},assigned_name=${b.name} WHERE owner=${owner} AND id=${draft.id}`;
  await assert.rejects(readCloseout(a,target,owner),AccessError);
