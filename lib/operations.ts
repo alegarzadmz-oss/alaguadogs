@@ -8,6 +8,7 @@ export type Client = {
   address: string;
   zone: string;
   notes: string;
+  status?: "active" | "archived";
   pets: {
     id: string;
     name: string;
@@ -21,12 +22,10 @@ export type Client = {
 };
 export const isActivePet = (pet: Client["pets"][number]) =>
   !pet.status || pet.status === "active";
+export const isActiveClient = (client: Client) =>
+  !client.status || client.status === "active";
 export const petStatusLabel = (pet: Client["pets"][number]) =>
-  pet.status === "deceased"
-    ? "Falleció"
-    : pet.status === "archived"
-      ? "Archivada"
-      : "Activa";
+  isActivePet(pet) ? "Activa" : "Archivada";
 export type Van = { id: string; name: string; groomer: string; notes: string };
 export type Service = {
   id: string;
@@ -292,6 +291,10 @@ export function validateClient(value: unknown): Client {
     address: text(c.address, "el domicilio", 400),
     zone: text(c.zone, "la zona", 100, false),
     notes: text(c.notes, "las notas", 2000, false),
+    ...(c.status !== undefined
+      ? { status: ["active", "archived"].includes(c.status)
+          ? c.status : fail("Revisa el estado del cliente.") }
+      : {}),
     lat: coord(c.lat, 90),
     lng: coord(c.lng, 180),
     pets: c.pets?.map((p) => ({
@@ -305,7 +308,7 @@ export function validateClient(value: unknown): Client {
       ...(p.status !== undefined
         ? {
             status: ["active", "archived", "deceased"].includes(p.status)
-              ? p.status
+              ? (p.status === "deceased" ? "archived" as const : p.status)
               : fail("Revisa el estado de la mascota."),
           }
         : {}),
@@ -332,9 +335,11 @@ export function validateAppointment(
   const client = s.clients.find((c) => c.id === a.clientId);
   if (!client || !client.pets.some((p) => p.id === a.petId))
     fail("Selecciona cliente y mascota.");
+  if (!isActiveClient(client))
+    fail("Este cliente está archivado. Reactiva su ficha antes de agendar.");
   if (!isActivePet(client.pets.find((p) => p.id === a.petId)!))
     fail(
-      "Esta mascota está archivada o falleció; no se pueden agendar servicios.",
+      "Esta mascota está archivada; reactívala antes de agendar servicios.",
     );
   if (
     !s.vans.some((v) => v.id === a.vanId) ||
@@ -409,6 +414,10 @@ export function mutateState(
         return prior && (prior.status || "active") !== (pet.status || "active");
       });
       if (at >= 0) {
+        if (!isActiveClient(cl) && s.appointments.some((a) =>
+          a.clientId === cl.id && (a.status === "En servicio" ||
+            (a.status === "Confirmado" && a.date >= today()))))
+          fail("Revisa y cancela primero las citas pendientes del cliente antes de archivarlo.");
         if (
           s.appointments.some(
             (a) =>
@@ -416,7 +425,7 @@ export function mutateState(
           )
         )
           fail(
-            "Esta mascota tiene historial. Archívala o registra que falleció para conservar sus servicios y pagos.",
+            "Esta mascota tiene historial. Archívala para conservar sus servicios y pagos.",
           );
         const unavailable = cl.pets.filter((p) => !isActivePet(p));
         if (
@@ -429,11 +438,11 @@ export function mutateState(
           )
         )
           fail(
-            "Cancela primero las citas pendientes de esta mascota antes de archivarla o registrar su fallecimiento.",
+            "Cancela primero las citas pendientes de esta mascota antes de archivarla.",
           );
         s.clients[at] = cl;
       } else s.clients.push(cl);
-      action = `Cliente guardado: ${cl.name}${statusChanges.length ? ` · ${statusChanges.map((p) => `${p.name}: ${petStatusLabel(p)}`).join(", ")}` : ""}`;
+      action = `Cliente guardado: ${cl.name} · ${isActiveClient(cl) ? "Activo" : "Archivado"}${statusChanges.length ? ` · ${statusChanges.map((p) => `${p.name}: ${petStatusLabel(p)}`).join(", ")}` : ""}`;
       break;
     }
     case "saveAppointment": {

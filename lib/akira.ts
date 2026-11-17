@@ -1,6 +1,7 @@
 import {
   km,
   isActivePet,
+  isActiveClient,
   minute,
   timeLabel,
   today,
@@ -61,6 +62,7 @@ export function findClients(state: State, query: string) {
   if (!words.length)
     throw Error("Escribe un nombre, mascota o domicilio para buscar.");
   const matches = state.clients.filter((c) => {
+    if (!isActiveClient(c)) return false;
     const value = normalizeSearch(
       [c.name, c.address, c.zone, ...c.pets.map((p) => p.name)].join(" "),
     );
@@ -150,6 +152,7 @@ export function buildBooking(
   const service = s.services.find((v) => v.id === input.serviceId);
   if (
     !client ||
+    !isActiveClient(client) ||
     !client.pets.some((p) => p.id === input.petId && isActivePet(p)) ||
     !van ||
     !service

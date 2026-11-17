@@ -83,6 +83,7 @@ import {
   clientBalance,
   routeProposal,
   isActivePet,
+  isActiveClient,
   petStatusLabel,
   type State,
   type Appointment,
@@ -231,6 +232,7 @@ export default function Home() {
   const [van, setVan] = useState("all");
   const [mode, setMode] = useState("day");
   const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState("active");
   const [modal, setModal] = useState<Modal | null>(null);
   const [cancel, setCancel] = useState<Appointment | null>(null);
   const [paymentTab, setPaymentTab] = useState("pending");
@@ -1243,6 +1245,18 @@ export default function Home() {
           )}
           {view === "clients" && (
             <>
+              <div className="toolbar">
+                <Choice
+                  label="Mostrar clientes"
+                  value={clientFilter}
+                  onChange={setClientFilter}
+                  options={[
+                    { value: "active", label: "Clientes activos" },
+                    { value: "archived", label: "Clientes archivados" },
+                    { value: "all", label: "Todos los clientes" },
+                  ]}
+                />
+              </div>
               <div className="search-field">
                 <Search size={18} />
                 <Input
@@ -1265,6 +1279,7 @@ export default function Home() {
                   </TableHeader>
                   <TableBody>
                     {s.clients
+                      .filter((c) => clientFilter === "all" || (clientFilter === "active" ? isActiveClient(c) : !isActiveClient(c)))
                       .filter((c) =>
                         [c.name, c.phone, c.zone, ...c.pets.map((p) => p.name)]
                           .join(" ")
@@ -1278,7 +1293,7 @@ export default function Home() {
                               className="cell-link"
                               onClick={() => open("clientDetail", c)}
                             >
-                              {c.name}
+                              {c.name}{!isActiveClient(c) && " · Archivado"}
                             </button>
                             <small className="cell-sub">
                               {c.pets.filter(isActivePet).map((p) => p.name).join(", ") || "Sin mascotas activas"} ·{" "}
@@ -1321,14 +1336,12 @@ export default function Home() {
                       ))}
                   </TableBody>
                 </Table>
-                {!s.clients.length && (
+                {!s.clients.some((c) => clientFilter === "all" || (clientFilter === "active" ? isActiveClient(c) : !isActiveClient(c))) && (
                   <Empty
-                    title="Aquí comienza el historial de cada familia"
-                    text={
-                      admin
-                        ? "Agrega un cliente y su mascota para agendar la primera visita."
-                        : "Tus clientes aparecerán cuando administración te asigne citas."
-                    }
+                    title={clientFilter === "archived" ? "No hay clientes archivados" : "No hay clientes activos"}
+                    text={clientFilter === "archived"
+                      ? "Las fichas que archives aparecerán aquí con su historial y pagos."
+                      : "Agrega un cliente o reactiva una ficha desde Clientes archivados."}
                   />
                 )}
               </section>
@@ -1668,7 +1681,7 @@ export default function Home() {
                 <h2>Actividad reciente</h2>
                 {s.audit.slice(0, 12).map((a, i) => (
                   <div className="audit-item" key={i}>
-                    <span>{a.action}</span>
+                    <span>{a.action.replace(/Falleció/gi, "Archivada")}</span>
                     <small>
                       {new Date(a.at).toLocaleString("es-MX", {
                         timeZone: "America/Mexico_City",
@@ -1796,7 +1809,7 @@ export default function Home() {
                 <>
                   <div className="section-row">
                     <div>
-                      <h2>{c.name}</h2>
+                      <h2>{c.name}{!isActiveClient(c) && " · Archivado"}</h2>
                       <p className="muted">
                         {admin
                           ? c.phone || "Sin teléfono"
@@ -1888,7 +1901,7 @@ export default function Home() {
                   <div className="button-row">
                     {admin && (
                       <Button
-                        disabled={!c.pets.some(isActivePet)}
+                        disabled={!isActiveClient(c) || !c.pets.some(isActivePet)}
                         onClick={() =>
                           open("appointment", {
                             clientId: c.id,
@@ -2159,7 +2172,7 @@ function Editor({
     if (kind === "appointment") {
       const v = s.vans.find((v) => v.id === record.vanId) || s.vans[0];
       const cl =
-        s.clients.find((c) => c.id === record.clientId) || s.clients.find((c) => c.pets.some(isActivePet));
+        s.clients.find((c) => c.id === record.clientId) || s.clients.find((c) => isActiveClient(c) && c.pets.some(isActivePet));
       const svc = s.services[0];
       const habitual = members.find(
         (m) =>
@@ -2382,7 +2395,7 @@ function Editor({
       {localError && <p role="alert">{localError}</p>}
       {kind === "appointment" && (
         <>
-          {!s.clients.some((c) => c.pets.some(isActivePet)) && (
+          {!s.clients.some((c) => isActiveClient(c) && c.pets.some(isActivePet)) && (
             <div className="info-note">
               Primero registra un cliente con una mascota activa en Clientes y mascotas.
             </div>
@@ -2391,7 +2404,7 @@ function Editor({
             {choice(
               "clientId",
               "Cliente",
-              s.clients.filter((c) => c.pets.some(isActivePet)).map((c) => ({ value: c.id, label: c.name })),
+              s.clients.filter((c) => isActiveClient(c) && c.pets.some(isActivePet)).map((c) => ({ value: c.id, label: c.name })),
               (v) => {
                 set("clientId", v);
                 set(
@@ -2492,6 +2505,21 @@ function Editor({
       )}
       {kind === "client" && (
         <>
+          <Field label="Estado del cliente">
+            <Choice
+              label="Estado del cliente"
+              value={f.status || "active"}
+              onChange={(status) => set("status", status)}
+              options={[
+                { value: "active", label: "Activo" },
+                { value: "archived", label: "Archivado" },
+              ]}
+            />
+          </Field>
+          <p className="muted">
+            Al archivar un cliente se conservan sus mascotas, visitas, pagos y saldos.
+            Puedes encontrarlo en «Clientes archivados» y reactivarlo cuando regrese.
+          </p>
           <div className="form-grid">
             {input("name", "Nombre del cliente")}
             {input("phone", "Teléfono", "tel", false)}
@@ -2503,9 +2531,8 @@ function Editor({
           {textarea("notes", "Notas de atención")}
           <h2>Mascotas</h2>
           <p className="muted">
-            Al quitar una mascota se archiva su ficha. Si falleció, selecciona
-            «Falleció». Su historial y pagos se conservan. Guarda los cambios al
-            terminar.
+            Al quitar una mascota se archiva su ficha y se conservan su historial
+            y pagos. Puedes reactivarla cuando lo necesites. Guarda los cambios al terminar.
           </p>
           {!f.pets.length && <p className="muted">Sin mascotas registradas.</p>}
           {f.pets.map((p: any, i: number) => (
@@ -2542,7 +2569,7 @@ function Editor({
               <Field label="Estado de la mascota">
                 <Choice
                   label={`Estado de ${p.name || `mascota ${i + 1}`}`}
-                  value={p.status || "active"}
+                  value={isActivePet(p) ? "active" : "archived"}
                   onChange={(status) =>
                     set(
                       "pets",
@@ -2554,7 +2581,6 @@ function Editor({
                   options={[
                     { value: "active", label: "Activa" },
                     { value: "archived", label: "Archivada" },
-                    { value: "deceased", label: "Falleció" },
                   ]}
                 />
               </Field>

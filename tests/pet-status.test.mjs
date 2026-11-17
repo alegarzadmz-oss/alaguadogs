@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { demoState, mutateState, validateClient, validateAppointment, isActivePet, today } from "../lib/operations.ts";
+import { demoState, mutateState, validateClient, validateAppointment, isActivePet, petStatusLabel, today } from "../lib/operations.ts";
 import { findClients, buildBooking } from "../lib/akira.ts";
 
 function fixture() {
@@ -17,11 +17,12 @@ for (const status of ["archived", "deceased"]) {
     const updated = mutateState(state, { type: "saveClient", client }, "Admin");
     assert.deepEqual(updated.appointments, state.appointments);
     assert.deepEqual(updated.payments, state.payments);
-    assert.equal(updated.clients[0].pets[0].status, status);
+    assert.equal(updated.clients[0].pets[0].status, "archived");
+    assert.equal(petStatusLabel(updated.clients[0].pets[0]), "Archivada");
     assert.equal(isActivePet(updated.clients[0].pets[1]), true);
     const options = findClients(updated, client.name).clients.find(c => c.id === client.id);
     assert.deepEqual(options.pets.map(p => p.name), ["Blu"]);
-    assert.throws(() => validateAppointment(updated, { ...state.appointments[0], id: "new" }), /archivada o falleció/);
+    assert.throws(() => validateAppointment(updated, { ...state.appointments[0], id: "new" }), /archivada/);
     assert.throws(() => buildBooking({ state: updated, members: [], history: [] }, { ...state.appointments[0], date: "2099-01-01", time: "10:00" }), /mascota/);
     client.pets[0].status = "active";
     assert.equal(isActivePet(mutateState(updated, { type: "saveClient", client }, "Admin").clients[0].pets[0]), true);
