@@ -155,6 +155,7 @@ export function workdayState(
     appointments: projected.appointments.map((a) => ({
       ...a,
       notes: staffText(a.notes),
+      ...(a.petSnapshot ? { petSnapshot: { ...a.petSnapshot, name: staffText(a.petSnapshot.name), breed: staffText(a.petSnapshot.breed), notes: staffText(a.petSnapshot.notes) } } : {}),
     })),
     clients: state.clients
       .filter((c) => clientIds.has(c.id))

@@ -1,6 +1,7 @@
 import {
   km,
   isActivePet,
+  appointmentPet,
   isActiveClient,
   minute,
   timeLabel,
@@ -104,9 +105,7 @@ export function daySchedule(ctx: PlanningContext, date: string) {
         van: ctx.state.vans.find((v) => v.id === a.vanId)?.name,
         client: ctx.state.clients.find((c) => c.id === a.clientId)?.name,
         address: ctx.state.clients.find((c) => c.id === a.clientId)?.address,
-        pet: ctx.state.clients
-          .find((c) => c.id === a.clientId)
-          ?.pets.find((p) => p.id === a.petId)?.name,
+        pet: appointmentPet(ctx.state, a)?.name,
       })),
     importedVisitsWithoutTimes: imported.length,
     warning: imported.length

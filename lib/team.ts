@@ -53,11 +53,13 @@ export function visibleState(state: State, member: TeamMember): State {
     const clients = new Set(appointments.map((a) => a.clientId));
     return {
       ...state,
+      deletedPets: [],
       appointments: appointments.map((a) => ({
         ...a,
         cost: 0,
         extraCost: 0,
         notes: "",
+        ...(a.petSnapshot ? { petSnapshot: { ...a.petSnapshot, notes: "" } } : {}),
         groomer: "",
       })),
       clients: state.clients
@@ -89,6 +91,7 @@ export function visibleState(state: State, member: TeamMember): State {
   const serviceIds = new Set(appointments.map((a) => a.serviceId));
   return {
     ...state,
+    deletedPets: [],
     appointments: appointments.map((a) => ({ ...a, cost: 0, extraCost: 0 })),
     clients: state.clients
       .filter((c) => clientIds.has(c.id))

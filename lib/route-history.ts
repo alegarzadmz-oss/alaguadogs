@@ -1,3 +1,4 @@
+import { appointmentPet } from "./operations";
 import type { Appointment, Client, State, Van } from "./operations";
 
 export const ROUTE_SOURCE =
@@ -118,7 +119,7 @@ export function appointmentVisits(state: State): BoardVisit[] {
     .filter((a) => a.status !== "Cancelado")
     .map((a) => {
       const client = clients.get(a.clientId);
-      const pet = client?.pets.find((p) => p.id === a.petId);
+      const pet = appointmentPet(state, a);
       const receipts = payments.get(a.id) || [];
       const paidAmount = receipts.reduce((sum, p) => sum + p.amount, 0);
       const methods = [...new Set(receipts.map((p) => p.method))];

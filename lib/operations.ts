@@ -38,6 +38,7 @@ export type Appointment = {
   id: string;
   clientId: string;
   petId: string;
+  petSnapshot?: Omit<Client["pets"][number], "status">;
   vanId: string;
   groomer: string;
   groomerId?: string;
@@ -77,6 +78,7 @@ export type Incident = {
 export type State = {
   demo: boolean;
   clients: Client[];
+  deletedPets?: { clientId: string; pet: Client["pets"][number]; deletedAt: string }[];
   vans: Van[];
   services: Service[];
   appointments: Appointment[];
@@ -86,6 +88,9 @@ export type State = {
   audit: { at: string; actor: string; action: string }[];
   operations: string[];
 };
+export const appointmentPet = (state: State, appointment: Appointment) =>
+  state.clients.find((c) => c.id === appointment.clientId)?.pets.find((p) => p.id === appointment.petId)
+    || appointment.petSnapshot;
 export type Command = { type: string; [key: string]: unknown };
 export const today = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -413,21 +418,13 @@ export function mutateState(
         const prior = s.clients[at]?.pets.find((p) => p.id === pet.id);
         return prior && (prior.status || "active") !== (pet.status || "active");
       });
+      const removed = at >= 0 ? s.clients[at].pets.filter((p) => !cl.pets.some((v) => v.id === p.id)) : [];
       if (at >= 0) {
         if (!isActiveClient(cl) && s.appointments.some((a) =>
           a.clientId === cl.id && (a.status === "En servicio" ||
             (a.status === "Confirmado" && a.date >= today()))))
           fail("Revisa y cancela primero las citas pendientes del cliente antes de archivarlo.");
-        if (
-          s.appointments.some(
-            (a) =>
-              a.clientId === cl.id && !cl.pets.some((p) => p.id === a.petId),
-          )
-        )
-          fail(
-            "Esta mascota tiene historial. Archívala para conservar sus servicios y pagos.",
-          );
-        const unavailable = cl.pets.filter((p) => !isActivePet(p));
+        const unavailable = [...cl.pets.filter((p) => !isActivePet(p)), ...removed];
         if (
           s.appointments.some(
             (a) =>
@@ -438,11 +435,29 @@ export function mutateState(
           )
         )
           fail(
-            "Cancela primero las citas pendientes de esta mascota antes de archivarla.",
+            "Cancela primero las citas pendientes de esta mascota antes de archivarla o eliminarla.",
           );
+        for (const pet of removed) {
+          s.deletedPets = [...(s.deletedPets || []), { clientId: cl.id, pet, deletedAt: now }];
+          for (const appointment of s.appointments.filter((a) => a.clientId === cl.id && a.petId === pet.id)) {
+            appointment.petSnapshot = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, notes: pet.notes };
+          }
+        }
         s.clients[at] = cl;
       } else s.clients.push(cl);
-      action = `Cliente guardado: ${cl.name} · ${isActiveClient(cl) ? "Activo" : "Archivado"}${statusChanges.length ? ` · ${statusChanges.map((p) => `${p.name}: ${petStatusLabel(p)}`).join(", ")}` : ""}`;
+      action = `Cliente guardado: ${cl.name} · ${isActiveClient(cl) ? "Activo" : "Archivado"}${removed.length ? ` · Mascotas eliminadas: ${removed.map((p) => p.name).join(", ")}` : ""}${statusChanges.length ? ` · ${statusChanges.map((p) => `${p.name}: ${petStatusLabel(p)}`).join(", ")}` : ""}`;
+      break;
+    }
+    case "restorePet": {
+      const deleted = s.deletedPets?.find((entry) => entry.clientId === c.clientId && entry.pet.id === c.petId);
+      if (!deleted) fail("Esta mascota ya no está en la papelera.");
+      const client = s.clients.find((entry) => entry.id === deleted.clientId);
+      if (!client || client.pets.some((p) => p.id === deleted.pet.id))
+        fail("No se puede restaurar esta mascota en la ficha.");
+      const restored = validateClient({ ...client, pets: [...client.pets, deleted.pet] });
+      s.clients[s.clients.indexOf(client)] = restored;
+      s.deletedPets = s.deletedPets!.filter((entry) => entry !== deleted);
+      action = `Mascota restaurada: ${deleted.pet.name} · ${client.name}`;
       break;
     }
     case "saveAppointment": {

@@ -83,6 +83,7 @@ import {
   clientBalance,
   routeProposal,
   isActivePet,
+  appointmentPet,
   isActiveClient,
   petStatusLabel,
   type State,
@@ -587,8 +588,7 @@ export default function Home() {
   const due = active.reduce((n, a) => n + balance(s, a), 0);
   const total = active.reduce((n, a) => n + a.price, 0);
   const cn = (id: string) => s.clients.find((c) => c.id === id);
-  const pet = (a: Appointment) =>
-    cn(a.clientId)?.pets.find((p) => p.id === a.petId);
+  const pet = (a: Appointment) => appointmentPet(s, a);
   const service = (id: string) => s.services.find((v) => v.id === id)?.name;
   const pending = s.appointments
     .filter((a) => balance(s, a) > 0)
@@ -1678,6 +1678,18 @@ export default function Home() {
                 </section>
               )}
               <section className="panel settings-card">
+                <details className="panel settings-card">
+                  <summary>Papelera de mascotas ({s.deletedPets?.length || 0})</summary>
+                  <p className="muted">Las mascotas eliminadas no aparecen en las fichas. Puedes recuperarlas aquí.</p>
+                  {(s.deletedPets || []).map((entry) => (
+                    <div className="section-row" key={`${entry.clientId}:${entry.pet.id}`}>
+                      <span>{entry.pet.name} · {cn(entry.clientId)?.name || "Cliente"}</span>
+                      <Button variant="outline" disabled={busy || !ready} onClick={() => save({ type: "restorePet", clientId: entry.clientId, petId: entry.pet.id })}>
+                        Restaurar mascota
+                      </Button>
+                    </div>
+                  ))}
+                </details>
                 <h2>Actividad reciente</h2>
                 {s.audit.slice(0, 12).map((a, i) => (
                   <div className="audit-item" key={i}>
@@ -2168,6 +2180,7 @@ function Editor({
   const kind = modal.kind;
   const record = modal.record || {};
   const [localError, setLocalError] = useState("");
+  const [petToDelete, setPetToDelete] = useState<{ id: string; name: string } | null>(null);
   const [f, setF] = useState<any>(() => {
     if (kind === "appointment") {
       const v = s.vans.find((v) => v.id === record.vanId) || s.vans[0];
@@ -2531,8 +2544,8 @@ function Editor({
           {textarea("notes", "Notas de atención")}
           <h2>Mascotas</h2>
           <p className="muted">
-            Al quitar una mascota se archiva su ficha y se conservan su historial
-            y pagos. Puedes reactivarla cuando lo necesites. Guarda los cambios al terminar.
+            Puedes archivar una mascota o eliminarla de esta ficha. Sus visitas y pagos
+            anteriores se conservan en el historial. Guarda los cambios al terminar.
           </p>
           {!f.pets.length && <p className="muted">Sin mascotas registradas.</p>}
           {f.pets.map((p: any, i: number) => (
@@ -2541,30 +2554,15 @@ function Editor({
                 <b>
                   {p.name || "Nueva mascota"} · {petStatusLabel(p)}
                 </b>
-                {isActivePet(p) && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    aria-label={`Quitar ${p.name || "mascota"} de mascotas activas`}
-                    onClick={() =>
-                      set(
-                        "pets",
-                        record.pets?.some(
-                          (x: Client["pets"][number]) => x.id === p.id,
-                        )
-                          ? f.pets.map((x: Client["pets"][number]) =>
-                              x.id === p.id ? { ...x, status: "archived" } : x,
-                            )
-                          : f.pets.filter(
-                              (x: Client["pets"][number]) => x.id !== p.id,
-                            ),
-                      )
-                    }
-                  >
-                    Quitar de mascotas activas
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  aria-label={`Eliminar mascota ${p.name || i + 1}`}
+                  onClick={() => setPetToDelete({ id: p.id, name: p.name || "esta mascota" })}
+                >
+                  Eliminar mascota
+                </Button>
               </div>
               <Field label="Estado de la mascota">
                 <Choice
@@ -2672,7 +2670,7 @@ function Editor({
               .filter((a) => balance(s, a) > 0)
               .map((a) => ({
                 value: a.id,
-                label: `${s.clients.find((c) => c.id === a.clientId)?.name} · ${a.date} · ${s.clients.find((c) => c.id === a.clientId)?.pets.find((p) => p.id === a.petId)?.name}`,
+                label: `${s.clients.find((c) => c.id === a.clientId)?.name} · ${a.date} · ${appointmentPet(s, a)?.name}`,
               })),
             (id) => {
               set("appointmentId", id);
@@ -2856,9 +2854,7 @@ function Editor({
                     <b>
                       {i + 1}.{" "}
                       {
-                        s.clients
-                          .find((c) => c.id === a.clientId)
-                          ?.pets.find((p) => p.id === a.petId)?.name
+                        appointmentPet(s, a)?.name
                       }
                     </b>
                     <span>
@@ -2894,6 +2890,25 @@ function Editor({
           {input("confirm", "Escribe EMPEZAR para confirmar")}
         </>
       )}
+      <AlertDialog open={!!petToDelete} onOpenChange={(v) => !v && setPetToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar a {petToDelete?.name} de esta ficha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dejará de aparecer en la ficha y al agendar. Las visitas y pagos anteriores
+              se conservarán. Puedes recuperarla desde la papelera en Equipo y servicios.
+              El cambio se aplica al guardar la ficha.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Conservar mascota</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={() => {
+              set("pets", f.pets.filter((p: Client["pets"][number]) => p.id !== petToDelete?.id));
+              setPetToDelete(null);
+            }}>Eliminar de la ficha</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="dialog-actions">
         <Button
           type="button"
@@ -2954,8 +2969,7 @@ function AppointmentDetail({
   setCancel: (a: Appointment) => void;
 }) {
   const cn = (id: string) => s.clients.find((c) => c.id === id);
-  const pet = (a: Appointment) =>
-    cn(a.clientId)?.pets.find((p) => p.id === a.petId);
+  const pet = (a: Appointment) => appointmentPet(s, a);
   const service = (id: string) => s.services.find((v) => v.id === id)?.name;
   const a = s.appointments.find((a) => a.id === id);
   if (!a)

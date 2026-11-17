@@ -23,6 +23,7 @@ import { AppInstall } from "./app-install";
 import { ServiceCloseout } from "./service-closeout";
 import {
   balance,
+  appointmentPet,
   paid,
   money,
   type State,
@@ -243,7 +244,7 @@ export function GroomerDay({
                 c = s.clients.find(
                   (c) => c.id === (a?.clientId || v?.clientId),
                 );
-              const pet = a ? c?.pets.find((p) => p.id === a.petId) : null;
+              const pet = a ? appointmentPet(s, a) : null;
               const amount = a ? a.price : v!.price,
                 received = a
                   ? paid(s, a.id)

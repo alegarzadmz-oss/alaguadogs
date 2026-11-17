@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { money, paid, type State } from "./operations";
+import { appointmentPet, money, paid, type State } from "./operations";
 import { AccessError, belongsTo, type TeamMember } from "./team";
 import type { RouteVisit } from "./route-history";
 
@@ -147,7 +147,7 @@ export function serviceReceipt(
       target.kind === "history"
         ? visit!.pets.map((p) => p.name)
         : [
-            client?.pets.find((p) => p.id === appointment!.petId)?.name ||
+            appointmentPet(state, appointment!)?.name ||
               "Mascota",
           ],
     date: target.kind === "history" ? visit!.date : appointment!.date,

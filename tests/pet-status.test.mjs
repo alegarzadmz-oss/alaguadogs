@@ -38,12 +38,14 @@ test("a pet with a pending or ongoing appointment must be reviewed before inacti
     assert.throws(() => mutateState(state, { type: "saveClient", client }, "Admin"), /Cancela primero/);
   }
 });
-test("removing an unsaved pet or the last pet without history is allowed; past references cannot be erased", () => {
+test("removing the last pet is allowed and historical references retain a snapshot", () => {
   const state = fixture();
   const client = structuredClone(state.clients[0]);
   client.pets = [];
   assert.deepEqual(validateClient(client).pets, []);
-  assert.throws(() => mutateState(state, { type: "saveClient", client }, "Admin"), /historial/);
+  const removed = mutateState(state, { type: "saveClient", client }, "Admin");
+  assert.equal(removed.clients[0].pets.length, 0);
+  assert.equal(removed.appointments[0].petSnapshot.name, state.clients[0].pets[0].name);
   state.appointments = [];
   assert.deepEqual(mutateState(state, { type: "saveClient", client }, "Admin").clients[0].pets, []);
 });
