@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/service-email-cron",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 15 * * *"
     },
     {
       "path": "/api/backup-cron",
