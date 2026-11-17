@@ -14,10 +14,19 @@ export type Client = {
     species: string;
     breed: string;
     notes: string;
+    status?: "active" | "archived" | "deceased";
   }[];
   lat: number | null;
   lng: number | null;
 };
+export const isActivePet = (pet: Client["pets"][number]) =>
+  !pet.status || pet.status === "active";
+export const petStatusLabel = (pet: Client["pets"][number]) =>
+  pet.status === "deceased"
+    ? "Falleció"
+    : pet.status === "archived"
+      ? "Archivada"
+      : "Activa";
 export type Van = { id: string; name: string; groomer: string; notes: string };
 export type Service = {
   id: string;
@@ -293,10 +302,17 @@ export function validateClient(value: unknown): Client {
         : fail("Selecciona perro, gato o especie por confirmar."),
       breed: text(p.breed, "la raza", 100, false),
       notes: text(p.notes, "las indicaciones", 2000, false),
+      ...(p.status !== undefined
+        ? {
+            status: ["active", "archived", "deceased"].includes(p.status)
+              ? p.status
+              : fail("Revisa el estado de la mascota."),
+          }
+        : {}),
     })),
   };
   if (
-    !result.pets?.length ||
+    !Array.isArray(result.pets) ||
     result.pets.length > 20 ||
     new Set(result.pets.map((p) => p.id)).size !== result.pets.length
   )
@@ -316,6 +332,10 @@ export function validateAppointment(
   const client = s.clients.find((c) => c.id === a.clientId);
   if (!client || !client.pets.some((p) => p.id === a.petId))
     fail("Selecciona cliente y mascota.");
+  if (!isActivePet(client.pets.find((p) => p.id === a.petId)!))
+    fail(
+      "Esta mascota está archivada o falleció; no se pueden agendar servicios.",
+    );
   if (
     !s.vans.some((v) => v.id === a.vanId) ||
     !s.services.some((v) => v.id === a.serviceId)
@@ -384,6 +404,10 @@ export function mutateState(
     case "saveClient": {
       const cl = validateClient(c.client);
       const at = s.clients.findIndex((v) => v.id === cl.id);
+      const statusChanges = cl.pets.filter((pet) => {
+        const prior = s.clients[at]?.pets.find((p) => p.id === pet.id);
+        return prior && (prior.status || "active") !== (pet.status || "active");
+      });
       if (at >= 0) {
         if (
           s.appointments.some(
@@ -391,10 +415,25 @@ export function mutateState(
               a.clientId === cl.id && !cl.pets.some((p) => p.id === a.petId),
           )
         )
-          fail("No se puede quitar una mascota con historial.");
+          fail(
+            "Esta mascota tiene historial. Archívala o registra que falleció para conservar sus servicios y pagos.",
+          );
+        const unavailable = cl.pets.filter((p) => !isActivePet(p));
+        if (
+          s.appointments.some(
+            (a) =>
+              a.clientId === cl.id &&
+              unavailable.some((p) => p.id === a.petId) &&
+              (a.status === "En servicio" ||
+                (a.status === "Confirmado" && a.date >= today())),
+          )
+        )
+          fail(
+            "Cancela primero las citas pendientes de esta mascota antes de archivarla o registrar su fallecimiento.",
+          );
         s.clients[at] = cl;
       } else s.clients.push(cl);
-      action = `Cliente guardado: ${cl.name}`;
+      action = `Cliente guardado: ${cl.name}${statusChanges.length ? ` · ${statusChanges.map((p) => `${p.name}: ${petStatusLabel(p)}`).join(", ")}` : ""}`;
       break;
     }
     case "saveAppointment": {
@@ -661,8 +700,7 @@ export function routeProposal(
   if (all.length > 60)
     return {
       ...empty,
-      error:
-        "Divide esta jornada: el cálculo admite hasta 60 paradas por VAN.",
+      error: "Divide esta jornada: el cálculo admite hasta 60 paradas por VAN.",
     };
   if (s.base.lat === null || s.base.lng === null)
     return {

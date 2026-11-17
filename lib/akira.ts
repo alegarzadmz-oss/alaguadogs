@@ -1,5 +1,6 @@
 import {
   km,
+  isActivePet,
   minute,
   timeLabel,
   today,
@@ -72,7 +73,7 @@ export function findClients(state: State, query: string) {
       name: c.name,
       address: c.address,
       zone: c.zone,
-      pets: c.pets.map((p) => ({
+      pets: c.pets.filter(isActivePet).map((p) => ({
         id: p.id,
         name: p.name,
         species: p.species,
@@ -149,13 +150,11 @@ export function buildBooking(
   const service = s.services.find((v) => v.id === input.serviceId);
   if (
     !client ||
-    !client.pets.some((p) => p.id === input.petId) ||
+    !client.pets.some((p) => p.id === input.petId && isActivePet(p)) ||
     !van ||
     !service
   )
-    throw Error(
-      "Selecciona una ficha, mascota, servicio y VAN existentes.",
-    );
+    throw Error("Selecciona una ficha, mascota, servicio y VAN existentes.");
   if (
     !client.address.trim() ||
     /direcci[oó]n no indicada/i.test(client.address)

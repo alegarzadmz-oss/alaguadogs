@@ -82,6 +82,8 @@ import {
   paid,
   clientBalance,
   routeProposal,
+  isActivePet,
+  petStatusLabel,
   type State,
   type Appointment,
   type Client,
@@ -1279,7 +1281,7 @@ export default function Home() {
                               {c.name}
                             </button>
                             <small className="cell-sub">
-                              {c.pets.map((p) => p.name).join(", ")} ·{" "}
+                              {c.pets.filter(isActivePet).map((p) => p.name).join(", ") || "Sin mascotas activas"} ·{" "}
                               {admin
                                 ? c.phone || "Teléfono por registrar"
                                 : "Contacto por Administración"}
@@ -1822,7 +1824,7 @@ export default function Home() {
                     {c.pets.map((p) => (
                       <div key={p.id}>
                         <PawPrint />
-                        <b>{p.name}</b>
+                        <b>{p.name}{!isActivePet(p) && ` · ${petStatusLabel(p)}`}</b>
                         <span>
                           {p.species} · {p.breed}
                         </span>
@@ -1886,10 +1888,11 @@ export default function Home() {
                   <div className="button-row">
                     {admin && (
                       <Button
+                        disabled={!c.pets.some(isActivePet)}
                         onClick={() =>
                           open("appointment", {
                             clientId: c.id,
-                            petId: c.pets[0].id,
+                            petId: c.pets.find(isActivePet)?.id || "",
                           })
                         }
                       >
@@ -2156,7 +2159,7 @@ function Editor({
     if (kind === "appointment") {
       const v = s.vans.find((v) => v.id === record.vanId) || s.vans[0];
       const cl =
-        s.clients.find((c) => c.id === record.clientId) || s.clients[0];
+        s.clients.find((c) => c.id === record.clientId) || s.clients.find((c) => c.pets.some(isActivePet));
       const svc = s.services[0];
       const habitual = members.find(
         (m) =>
@@ -2167,7 +2170,7 @@ function Editor({
         date,
         time: "09:00",
         clientId: cl?.id || "",
-        petId: cl?.pets[0]?.id || "",
+        petId: cl?.pets.find(isActivePet)?.id || "",
         vanId: v.id,
         groomer: habitual?.name || v.groomer,
         groomerId: habitual?.id || "",
@@ -2379,28 +2382,28 @@ function Editor({
       {localError && <p role="alert">{localError}</p>}
       {kind === "appointment" && (
         <>
-          {!s.clients.length && (
+          {!s.clients.some((c) => c.pets.some(isActivePet)) && (
             <div className="info-note">
-              Primero registra un cliente con su mascota en Clientes y mascotas.
+              Primero registra un cliente con una mascota activa en Clientes y mascotas.
             </div>
           )}
           <div className="form-grid">
             {choice(
               "clientId",
               "Cliente",
-              s.clients.map((c) => ({ value: c.id, label: c.name })),
+              s.clients.filter((c) => c.pets.some(isActivePet)).map((c) => ({ value: c.id, label: c.name })),
               (v) => {
                 set("clientId", v);
                 set(
                   "petId",
-                  s.clients.find((c) => c.id === v)?.pets[0]?.id || "",
+                  s.clients.find((c) => c.id === v)?.pets.find(isActivePet)?.id || "",
                 );
               },
             )}
             {choice(
               "petId",
               "Mascota",
-              (s.clients.find((c) => c.id === f.clientId)?.pets || []).map(
+              (s.clients.find((c) => c.id === f.clientId)?.pets || []).filter(isActivePet).map(
                 (p) => ({ value: p.id, label: `${p.name} · ${p.species}` }),
               ),
             )}
@@ -2499,8 +2502,62 @@ function Editor({
           {coordinates}
           {textarea("notes", "Notas de atención")}
           <h2>Mascotas</h2>
+          <p className="muted">
+            Al quitar una mascota se archiva su ficha. Si falleció, selecciona
+            «Falleció». Su historial y pagos se conservan. Guarda los cambios al
+            terminar.
+          </p>
+          {!f.pets.length && <p className="muted">Sin mascotas registradas.</p>}
           {f.pets.map((p: any, i: number) => (
             <div className="pet-editor" key={p.id}>
+              <div className="section-row">
+                <b>
+                  {p.name || "Nueva mascota"} · {petStatusLabel(p)}
+                </b>
+                {isActivePet(p) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    aria-label={`Quitar ${p.name || "mascota"} de mascotas activas`}
+                    onClick={() =>
+                      set(
+                        "pets",
+                        record.pets?.some(
+                          (x: Client["pets"][number]) => x.id === p.id,
+                        )
+                          ? f.pets.map((x: Client["pets"][number]) =>
+                              x.id === p.id ? { ...x, status: "archived" } : x,
+                            )
+                          : f.pets.filter(
+                              (x: Client["pets"][number]) => x.id !== p.id,
+                            ),
+                      )
+                    }
+                  >
+                    Quitar de mascotas activas
+                  </Button>
+                )}
+              </div>
+              <Field label="Estado de la mascota">
+                <Choice
+                  label={`Estado de ${p.name || `mascota ${i + 1}`}`}
+                  value={p.status || "active"}
+                  onChange={(status) =>
+                    set(
+                      "pets",
+                      f.pets.map((x: Client["pets"][number]) =>
+                        x.id === p.id ? { ...x, status } : x,
+                      ),
+                    )
+                  }
+                  options={[
+                    { value: "active", label: "Activa" },
+                    { value: "archived", label: "Archivada" },
+                    { value: "deceased", label: "Falleció" },
+                  ]}
+                />
+              </Field>
               <div className="form-grid">
                 <Field label="Nombre de la mascota">
                   <Input
